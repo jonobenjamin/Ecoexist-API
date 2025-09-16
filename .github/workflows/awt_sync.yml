@@ -2,9 +2,9 @@ name: AWT Data Sync
 
 on:
   schedule:
-    # Runs every day at 5 AM UTC (adjust timezone)
-    - cron: '0 3 * * *'
-  workflow_dispatch:  # allows manual run from GitHub UI
+    # Runs every day at 5 AM Botswana time (UTC+2 = 03:00 UTC)
+    - cron: '03 03 * * *'
+  workflow_dispatch:
 
 jobs:
   sync:
@@ -23,6 +23,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install requests google-cloud-storage
+
+      - name: Setup GCP Credentials
+        run: |
+          echo "${{ secrets.GOOGLE_CREDENTIALS }}" > gcp-key.json
+          export GOOGLE_APPLICATION_CREDENTIALS="gcp-key.json"
 
       - name: Run AWT Sync Script
         env:
