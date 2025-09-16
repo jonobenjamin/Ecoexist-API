@@ -26,11 +26,21 @@ jobs:
 
     - name: Set up Google Cloud credentials
       run: |
-        # Decode base64 credentials to file
-        echo "${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
+        # Decode base64 credentials to file using Python (more reliable)
+        python -c "
+        import base64
+        import os
+        b64_data = os.environ['GOOGLE_CREDENTIALS_BASE64']
+        json_data = base64.b64decode(b64_data)
+        with open('gcp-key.json', 'wb') as f:
+            f.write(json_data)
+        print('✓ Base64 decoded successfully')
+        "
         # Validate the JSON is properly formatted
         python -c "import json; data=json.load(open('gcp-key.json')); print(f'✓ JSON valid. Private key: {len(data[\"private_key\"])} chars, Project: {data[\"project_id\"]}')" || (echo "JSON invalid" && cat gcp-key.json && exit 1)
       shell: bash
+      env:
+        GOOGLE_CREDENTIALS_BASE64: ${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}
 
     - name: Run AWT data sync
       env:
