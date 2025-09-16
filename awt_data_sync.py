@@ -35,20 +35,40 @@ class AWTDataSync:
         # Validate required environment variables
         self._validate_config()
 
-        # Initialize GCS client
-        self.gcs_client = storage.Client(project=self.gcs_project_id)
-        self.bucket = self.gcs_client.bucket(self.gcs_bucket_name)
+        # Initialize GCS client (optional for testing)
+        if self.gcs_project_id and self.gcs_bucket_name:
+            try:
+                self.gcs_client = storage.Client(project=self.gcs_project_id)
+                self.bucket = self.gcs_client.bucket(self.gcs_bucket_name)
+                # Test the connection by trying to get bucket info
+                self.bucket.reload()
+                self.gcs_available = True
+                print("✓ Google Cloud Storage available")
+            except Exception as e:
+                print(f"Warning: Google Cloud Storage not available: {e}")
+                self.gcs_available = False
+        else:
+            print("GCS_PROJECT_ID or GCS_BUCKET_NAME not set, Google Cloud Storage disabled")
+            self.gcs_available = False
 
     def _validate_config(self):
         """Validate that all required environment variables are set."""
         required_vars = [
-            'AWT_USERNAME', 'AWT_PASSWORD', 'AWT_API_KEY',
+            'AWT_USERNAME', 'AWT_PASSWORD', 'AWT_API_KEY'
+        ]
+        optional_vars = [
             'GCS_BUCKET_NAME', 'GCS_PROJECT_ID'
         ]
 
         missing_vars = [var for var in required_vars if not os.getenv(var)]
         if missing_vars:
             raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
+        # Check optional vars and warn if missing
+        missing_optional = [var for var in optional_vars if not os.getenv(var)]
+        if missing_optional:
+            print(f"Warning: Optional GCS variables not set: {', '.join(missing_optional)}")
+            print("Google Cloud Storage will be disabled")
 
     def _get_auth_headers(self) -> Dict[str, str]:
         """Get authentication headers for API requests."""
@@ -77,11 +97,21 @@ class AWTDataSync:
 
     def _is_first_run(self) -> bool:
         """Check if this is the first run by looking for a marker file in GCS."""
-        marker_blob = self.bucket.blob('awt_sync/.first_run_complete')
-        return not marker_blob.exists()
+        if not self.gcs_available:
+            print("GCS not available, assuming first run")
+            return True
+        try:
+            marker_blob = self.bucket.blob('awt_sync/.first_run_complete')
+            return not marker_blob.exists()
+        except Exception as e:
+            print(f"GCS error in _is_first_run: {e}, assuming first run")
+            return True
 
     def _mark_first_run_complete(self):
         """Mark that the first run has been completed."""
+        if not self.gcs_available:
+            print("GCS not available, skipping first run marker")
+            return
         marker_blob = self.bucket.blob('awt_sync/.first_run_complete')
         marker_blob.upload_from_string(
             json.dumps({
@@ -93,6 +123,9 @@ class AWTDataSync:
 
     def _get_last_sync_time(self) -> Optional[datetime]:
         """Get the timestamp of the last successful sync."""
+        if not self.gcs_available:
+            print("GCS not available, no last sync time")
+            return None
         try:
             last_sync_blob = self.bucket.blob('awt_sync/.last_sync')
             if last_sync_blob.exists():
@@ -104,6 +137,9 @@ class AWTDataSync:
 
     def _update_last_sync_time(self):
         """Update the last sync timestamp."""
+        if not self.gcs_available:
+            print("GCS not available, skipping last sync update")
+            return
         last_sync_blob = self.bucket.blob('awt_sync/.last_sync')
         last_sync_blob.upload_from_string(
             json.dumps({
@@ -133,6 +169,10 @@ class AWTDataSync:
 
     def _upload_to_gcs(self, data: Dict[str, Any], filename: str):
         """Upload data to Google Cloud Storage."""
+        if not self.gcs_available:
+            print(f"GCS not available, would upload {filename} with {len(str(data))} chars")
+            return
+
         try:
             blob = self.bucket.blob(f"awt_data/{filename}")
             blob.upload_from_string(

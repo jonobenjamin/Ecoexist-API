@@ -26,17 +26,25 @@ jobs:
 
     - name: Set up Google Cloud credentials
       run: |
-        # Write credentials from secret
-        echo "${{ secrets.GOOGLE_CREDENTIALS }}" > gcp-key.json
-        echo "✓ Google credentials written successfully"
+        # Only set up credentials if the secret exists
+        if [ -n "${{ secrets.GOOGLE_CREDENTIALS }}" ]; then
+          echo "Setting up Google Cloud credentials..."
+          cat > gcp-key.json << 'EOF'
+          ${{ secrets.GOOGLE_CREDENTIALS }}
+          EOF
+          echo "✓ Google credentials written successfully"
+        else
+          echo "No GOOGLE_CREDENTIALS secret found, skipping GCS setup"
+        fi
 
     - name: Run AWT data sync
       env:
-        GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
         AWT_USERNAME: ${{ secrets.AWT_USERNAME }}
         AWT_PASSWORD: ${{ secrets.AWT_PASSWORD }}
         AWT_API_KEY: ${{ secrets.AWT_API_KEY }}
         GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
         GCS_PROJECT_ID: ${{ secrets.GCS_PROJECT_ID }}
+        # Only set credentials if they exist
+        GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS != '' && format('{0}/gcp-key.json', github.workspace) || '' }}
       run: |
         python awt_data_sync.py
