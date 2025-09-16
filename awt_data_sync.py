@@ -210,9 +210,14 @@ class AWTDataSync:
         )
 
         if data:
-            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-            filename = f"awt_tracking_data_initial_{timestamp}.json"
-            self._upload_to_gcs(data, filename)
+            # Create initial cumulative dataset
+            cumulative_filename = "awt_tracking_data_cumulative.json"
+            blob = self.bucket.blob(f"awt_data/{cumulative_filename}")
+            blob.upload_from_string(
+                json.dumps(data, indent=2),
+                content_type='application/json'
+            )
+            logger.info(f"✓ Created initial cumulative dataset with {len(data) if isinstance(data, list) else 1} records")
 
             # Mark first run as complete
             self._mark_first_run_complete()
@@ -221,7 +226,7 @@ class AWTDataSync:
             logger.warning("No data received from API")
 
     def _perform_incremental_sync(self):
-        """Perform incremental sync of latest data."""
+        """Perform incremental sync of latest data and append to cumulative dataset."""
         last_sync = self._get_last_sync_time()
         if last_sync:
             start_date = last_sync
@@ -239,13 +244,56 @@ class AWTDataSync:
         )
 
         if data:
-            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-            filename = f"awt_tracking_data_incremental_{timestamp}.json"
-            self._upload_to_gcs(data, filename)
-
+            # Append new data to cumulative dataset
+            self._append_to_cumulative_data(data)
             self._update_last_sync_time()
+            logger.info(f"✓ Successfully added {len(data) if isinstance(data, list) else 1} new records to cumulative dataset")
         else:
             logger.info("No new data available")
+
+    def _append_to_cumulative_data(self, new_data):
+        """Append new data to the cumulative dataset in GCS."""
+        cumulative_filename = "awt_tracking_data_cumulative.json"
+
+        try:
+            # Try to download existing cumulative data
+            existing_data = []
+            try:
+                blob = self.bucket.blob(f"awt_data/{cumulative_filename}")
+                if blob.exists():
+                    existing_json = blob.download_as_text()
+                    existing_data = json.loads(existing_json)
+                    logger.info(f"Downloaded existing cumulative data with {len(existing_data)} records")
+                else:
+                    logger.info("No existing cumulative data found, starting fresh")
+            except Exception as e:
+                logger.warning(f"Could not download existing data: {e}, starting fresh")
+
+            # Append new data
+            if isinstance(existing_data, list) and isinstance(new_data, list):
+                combined_data = existing_data + new_data
+            elif isinstance(existing_data, list):
+                combined_data = existing_data + [new_data]
+            elif isinstance(new_data, list):
+                combined_data = [existing_data] + new_data
+            else:
+                combined_data = [existing_data, new_data]
+
+            # Upload combined data
+            blob = self.bucket.blob(f"awt_data/{cumulative_filename}")
+            blob.upload_from_string(
+                json.dumps(combined_data, indent=2),
+                content_type='application/json'
+            )
+            logger.info(f"✓ Uploaded cumulative dataset with {len(combined_data)} total records")
+
+        except Exception as e:
+            logger.error(f"Failed to append to cumulative data: {e}")
+            # Fallback: upload new data as separate incremental file
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            filename = f"awt_tracking_data_incremental_{timestamp}.json"
+            self._upload_to_gcs(new_data, filename)
+            logger.warning(f"Fell back to separate incremental file: {filename}")
 
 def main():
     """Main entry point."""
