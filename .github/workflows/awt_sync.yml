@@ -26,50 +26,17 @@ jobs:
 
     - name: Set up Google Cloud credentials
       run: |
-        # FORCE DEBUG OUTPUT
-        echo "=== CREDENTIALS STEP STARTED ==="
-        echo "Current working directory: $(pwd)"
-        echo "GitHub workspace: $GITHUB_WORKSPACE"
-        echo "=== DEBUG INFO ==="
-        echo "Secret exists check: ${{ secrets.GOOGLE_CREDENTIALS_BASE64 != '' && 'YES' || 'NO/EMPTY' }}"
-        echo "Secret length: ${#GOOGLE_CREDENTIALS_BASE64}"
-
-        if [ -z "$GOOGLE_CREDENTIALS_BASE64" ]; then
-          echo "❌ ERROR: GOOGLE_CREDENTIALS_BASE64 secret is empty or not set!"
-          echo "Please check that you created the GOOGLE_CREDENTIALS_BASE64 secret in GitHub"
-          exit 1
-        fi
-        echo "✅ Secret is not empty, proceeding..."
-
-        echo "Secret starts with: ${GOOGLE_CREDENTIALS_BASE64:0:50}..."
-
-        # Decode base64 credentials to file using Python (more reliable)
+        # Decode base64 credentials and create key file
         python -c "
-        import base64
-        import os
-        import json
-        b64_data = os.environ.get('GOOGLE_CREDENTIALS_BASE64', '')
-        if not b64_data:
-            print('❌ ERROR: No base64 data received')
-            exit(1)
-        print(f'Base64 input length: {len(b64_data)}')
-        try:
-            json_data = base64.b64decode(b64_data)
-            print(f'Decoded data length: {len(json_data)}')
-            with open('gcp-key.json', 'wb') as f:
-                f.write(json_data)
-            print('✓ Base64 decoded successfully')
-            # Quick validation
-            with open('gcp-key.json', 'r') as f:
-                data = json.load(f)
-            print(f'✓ JSON valid. Project: {data[\"project_id\"]}, Client email: {data[\"client_email\"][:30]}...')
-        except Exception as e:
-            print(f'✗ Base64 decode failed: {e}')
-            exit(1)
-        "
-        # Final validation
-        python -c "import json; data=json.load(open('gcp-key.json')); print(f'✓ Final validation passed. Private key: {len(data[\"private_key\"])} chars')" || (echo "JSON invalid" && head -10 gcp-key.json && echo "..." && exit 1)
-        echo "=== CREDENTIALS SETUP COMPLETE ==="
+import base64
+import os
+import json
+b64_data = os.environ['GOOGLE_CREDENTIALS_BASE64']
+json_data = base64.b64decode(b64_data)
+with open('gcp-key.json', 'wb') as f:
+    f.write(json_data)
+print('✓ Google credentials decoded successfully')
+"
       shell: bash
       env:
         GOOGLE_CREDENTIALS_BASE64: ${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}
