@@ -26,15 +26,20 @@ jobs:
 
     - name: Set up Google Cloud credentials
       run: |
-        # Debug: Check what we're getting from the secret
+        # FORCE DEBUG OUTPUT
+        echo "=== CREDENTIALS STEP STARTED ==="
+        echo "Current working directory: $(pwd)"
+        echo "GitHub workspace: $GITHUB_WORKSPACE"
         echo "=== DEBUG INFO ==="
         echo "Secret exists check: ${{ secrets.GOOGLE_CREDENTIALS_BASE64 != '' && 'YES' || 'NO/EMPTY' }}"
         echo "Secret length: ${#GOOGLE_CREDENTIALS_BASE64}"
 
         if [ -z "$GOOGLE_CREDENTIALS_BASE64" ]; then
           echo "❌ ERROR: GOOGLE_CREDENTIALS_BASE64 secret is empty or not set!"
+          echo "Please check that you created the GOOGLE_CREDENTIALS_BASE64 secret in GitHub"
           exit 1
         fi
+        echo "✅ Secret is not empty, proceeding..."
 
         echo "Secret starts with: ${GOOGLE_CREDENTIALS_BASE64:0:50}..."
 
