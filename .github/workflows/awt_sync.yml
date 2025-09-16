@@ -26,18 +26,33 @@ jobs:
 
     - name: Set up Google Cloud credentials
       run: |
+        # Debug: Check what we're getting from the secret
+        echo "Secret length: ${#GOOGLE_CREDENTIALS_BASE64}"
+        echo "Secret starts with: ${GOOGLE_CREDENTIALS_BASE64:0:50}..."
+
         # Decode base64 credentials to file using Python (more reliable)
         python -c "
         import base64
         import os
+        import json
         b64_data = os.environ['GOOGLE_CREDENTIALS_BASE64']
-        json_data = base64.b64decode(b64_data)
-        with open('gcp-key.json', 'wb') as f:
-            f.write(json_data)
-        print('✓ Base64 decoded successfully')
+        print(f'Base64 input length: {len(b64_data)}')
+        try:
+            json_data = base64.b64decode(b64_data)
+            print(f'Decoded data length: {len(json_data)}')
+            with open('gcp-key.json', 'wb') as f:
+                f.write(json_data)
+            print('✓ Base64 decoded successfully')
+            # Quick validation
+            with open('gcp-key.json', 'r') as f:
+                data = json.load(f)
+            print(f'✓ JSON valid. Project: {data[\"project_id\"]}, Client email: {data[\"client_email\"][:30]}...')
+        except Exception as e:
+            print(f'✗ Base64 decode failed: {e}')
+            exit(1)
         "
-        # Validate the JSON is properly formatted
-        python -c "import json; data=json.load(open('gcp-key.json')); print(f'✓ JSON valid. Private key: {len(data[\"private_key\"])} chars, Project: {data[\"project_id\"]}')" || (echo "JSON invalid" && cat gcp-key.json && exit 1)
+        # Final validation
+        python -c "import json; data=json.load(open('gcp-key.json')); print(f'✓ Final validation passed. Private key: {len(data[\"private_key\"])} chars')" || (echo "JSON invalid" && head -10 gcp-key.json && echo "..." && exit 1)
       shell: bash
       env:
         GOOGLE_CREDENTIALS_BASE64: ${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}
