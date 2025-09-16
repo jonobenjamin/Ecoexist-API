@@ -26,7 +26,10 @@ jobs:
 
     - name: Set up Google Cloud credentials
       run: |
+        # Write credentials to file
         echo "${{ secrets.GOOGLE_CREDENTIALS }}" > gcp-key.json
+        # Validate the JSON is properly formatted
+        python -m json.tool gcp-key.json > /dev/null && echo "JSON is valid" || (echo "JSON is invalid - check your GOOGLE_CREDENTIALS secret" && cat gcp-key.json && exit 1)
       shell: bash
 
     - name: Run AWT data sync
