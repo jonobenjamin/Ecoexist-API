@@ -29,22 +29,27 @@ jobs:
         # Only set up credentials if the secret exists
         if [ -n "${{ secrets.GOOGLE_CREDENTIALS }}" ]; then
           echo "Setting up Google Cloud credentials..."
-          cat > gcp-key.json << 'EOF'
-          ${{ secrets.GOOGLE_CREDENTIALS }}
-          EOF
+          printf '%s\n' "${{ secrets.GOOGLE_CREDENTIALS }}" > gcp-key.json
           echo "✓ Google credentials written successfully"
         else
           echo "No GOOGLE_CREDENTIALS secret found, skipping GCS setup"
         fi
 
     - name: Run AWT data sync
-      env:
-        AWT_USERNAME: ${{ secrets.AWT_USERNAME }}
-        AWT_PASSWORD: ${{ secrets.AWT_PASSWORD }}
-        AWT_API_KEY: ${{ secrets.AWT_API_KEY }}
-        GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
-        GCS_PROJECT_ID: ${{ secrets.GCS_PROJECT_ID }}
-        # Only set credentials if they exist
-        GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS != '' && format('{0}/gcp-key.json', github.workspace) || '' }}
       run: |
+        # Set up environment variables
+        echo "AWT_USERNAME=${{ secrets.AWT_USERNAME }}" >> $GITHUB_ENV
+        echo "AWT_PASSWORD=${{ secrets.AWT_PASSWORD }}" >> $GITHUB_ENV
+        echo "AWT_API_KEY=${{ secrets.AWT_API_KEY }}" >> $GITHUB_ENV
+
+        # Only set GCS variables if secrets exist
+        if [ -n "${{ secrets.GCS_PROJECT_ID }}" ] && [ -n "${{ secrets.GCS_BUCKET_NAME }}" ] && [ -n "${{ secrets.GOOGLE_CREDENTIALS }}" ]; then
+          echo "GCS_PROJECT_ID=${{ secrets.GCS_PROJECT_ID }}" >> $GITHUB_ENV
+          echo "GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}" >> $GITHUB_ENV
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/gcp-key.json" >> $GITHUB_ENV
+          echo "✓ GCS environment variables set"
+        else
+          echo "⚠️  GCS secrets not fully configured, disabling GCS"
+        fi
+
         python awt_data_sync.py
