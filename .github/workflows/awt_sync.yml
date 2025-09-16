@@ -42,8 +42,20 @@ jobs:
           "universe_domain": "googleapis.com"
         }
         EOF
+        # Debug: Show what we created
+        echo "=== Created JSON file ==="
+        head -5 gcp-key.json
+        echo "..."
+        tail -5 gcp-key.json
+        echo "=== End JSON file ==="
         # Validate the JSON is properly formatted
-        python -m json.tool gcp-key.json > /dev/null && echo "JSON is valid" || (echo "JSON is invalid" && cat gcp-key.json && exit 1)
+        python -c "
+import json
+with open('gcp-key.json', 'r') as f:
+    data = json.load(f)
+print(f'✓ JSON is valid. Private key length: {len(data[\"private_key\"])}')
+print(f'Project ID: {data[\"project_id\"]}')
+" || (echo "JSON is invalid" && cat gcp-key.json && exit 1)
       shell: bash
 
     - name: Run AWT data sync
