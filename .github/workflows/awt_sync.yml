@@ -26,19 +26,33 @@ jobs:
 
     - name: Set up Google Cloud credentials
       run: |
-        # Write credentials to file
-        echo "${{ secrets.GOOGLE_CREDENTIALS }}" > gcp-key.json
+        # Write credentials directly to file
+        cat > gcp-key.json << 'EOF'
+        {
+          "type": "service_account",
+          "project_id": "awt-api-472312",
+          "private_key_id": "e46b4a67150af970913770a5c965282e02951554",
+          "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCp+nBNNG3i5XFu\n5L17G6G4IRQob1yg2d9AJch7caRbjyG7+4FGPst190e8y88SJqRisgzZccA41KID\n854lXJ2NPaULP5DO2wN3ozfFPHYBcDdlq1KJ/k3gxwpzOB8C086UgjWlvdDjfuHl\nOF1yYnvHnW+Ihu3mjuDnXU2ttbr7rPMGgqXrXXnDnmIuF88oN6poxu/5En8i/MOn\nW6ot1M9PJZ/ntj0N3HEi08OhCu1xxVpURVMFNSwRumXM05GCa2/V8RyRbI+2Yh9F\nWh3ZJrsCWge5J+WdZDbafMTC83QJ33jqYsHprmCPsyHG8ZKadYr535xSv95OZSBJ\ndJ26k5VdAgMBAAECggEARNqtbiDMWIqP+hdPiBRn3JINu9lsgL3w2OfVP+gHZ41h\n4WeedMmQGo+aMCixD0227kHowZZ6Aqtjm80uJT1Qlvu/JQDRVHHUhDyKJWv581g1\nIIqXS03H10NZgNXdfgQ1nOPn/mUXPmhR8kv0UpcBRBmKqhfaO7hp817QzgqdHUBF\ny/udm+4FKII8skdwjCQhCIA1JS5Q0RRjIqFmoctuJnfdYowtE/jQdJV8HNe2B+qb\nU8UVO8SgTNA9ZjLqwhsUampi3OSxNDxQfkJP+reVc/EdnJszTiiXQd7TaZcEX95+\no3iQeiZ9Up14mmhTsQQ0kSKyfTtduR8myK05X14+MwKBgQDuSECl6BkGcVwVcB6P\njuAJf2z0kYq4K8bNpju97tPFGjeGukJJaWKxcdQvDjL+ydzMDR3+J89/jzJxzXZl\nEC+8p4nJNaVe/RXSZxVkasqSsyjKV8mLAuj8L6LDsJR5gf3fjvHCnP2ZnadwqzYF\nrwhrG8HKT3pN/SvS2DLBw55a7wKBgQC2ngHgnoZWB7gI/o/OxibsqCIICvKKbWY9\n6arjDK5U43+zaPb2KahJfMMmaGL7Zx/yuzHVMlDKhQ/e1hpaKzGwsEYctB4weoay\nVkOfaycudh2zzNovwXbt3YexXhqNNUjbcksnSFeBp28pvWFlcAAgt7+3j/1t1DFV\nWfWgE0sEcwKBgG/mfH2tPrtY1w62RZPTXAD513gPNV8CJ+2ByIKMuuTQSA08QU7q\nb8+3Dhc/CtG+iLNG4bPujDJyVBU/kP8rF8/3uexFBjFSl0Hk6RXsVM+J1XkYuuxO\nZI2x7TULIt7hHhEztvNW+H2AnRZ7QPZwWXq7YUmaA2zGnSL6JvP54s7/AoGBALJ7\nahBUP62Tq742tuz8ZAzHI0PDF1xOIjB+0cNJoJVdKHF8NGtROaZhZwaB3cQi/Wmq\npcDehXH6bRF5JpZcQxuSnWPuctck2cMxZrRH8SqKzOrvW4xzRL6k1rt24vKCUqwQ\nX/2LyeLxd0dPTgLrXWSc0qcg9yvByVnHK7cBRD+bAoGAOs7BNMUv2cJp7znlKeBd\nwq1thQZADS1aaai32RD5C601SHUP4owxJ+9KrSbs9sz/wQcI6w7VkM9fCWri7/5Y\nbxUF6h/Ux0AqkWmhB0nZqCU2Hkr7U4+Lq7fe2Vt+oyL4byFn806P0kclpOElsnIH\nWKNYd7LDmqQD/8hO0L1b0ts=\n-----END PRIVATE KEY-----\n",
+          "client_email": "awt-data-sync-service@awt-api-472312.iam.gserviceaccount.com",
+          "client_id": "100164488710156794864",
+          "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+          "token_uri": "https://oauth2.googleapis.com/token",
+          "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+          "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/awt-data-sync-service%40awt-api-472312.iam.gserviceaccount.com",
+          "universe_domain": "googleapis.com"
+        }
+        EOF
         # Validate the JSON is properly formatted
-        python -m json.tool gcp-key.json > /dev/null && echo "JSON is valid" || (echo "JSON is invalid - check your GOOGLE_CREDENTIALS secret" && cat gcp-key.json && exit 1)
+        python -m json.tool gcp-key.json > /dev/null && echo "JSON is valid" || (echo "JSON is invalid" && cat gcp-key.json && exit 1)
       shell: bash
 
     - name: Run AWT data sync
       env:
         GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
-        AWT_USERNAME: ${{ secrets.AWT_USERNAME }}
-        AWT_PASSWORD: ${{ secrets.AWT_PASSWORD }}
-        AWT_API_KEY: ${{ secrets.AWT_API_KEY }}
-        GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
-        GCS_PROJECT_ID: ${{ secrets.GCS_PROJECT_ID }}
+        AWT_USERNAME: ${{ vars.AWT_USERNAME || 'your_username_here' }}
+        AWT_PASSWORD: ${{ vars.AWT_PASSWORD || 'your_password_here' }}
+        AWT_API_KEY: ${{ vars.AWT_API_KEY || 'your_api_key_here' }}
+        GCS_BUCKET_NAME: ${{ vars.GCS_BUCKET_NAME || 'your_bucket_name' }}
+        GCS_PROJECT_ID: awt-api-472312
       run: |
         python awt_data_sync.py
