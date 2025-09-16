@@ -24,16 +24,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests google-cloud-storage
 
-      - name: Setup GCP Credentials
-        run: |
-          echo "${{ secrets.GOOGLE_CREDENTIALS }}" > gcp-key.json
-          export GOOGLE_APPLICATION_CREDENTIALS="gcp-key.json"
-
-      - name: Run AWT Sync Script
+      - name: Run AWT Sync Script with GCP Credentials
         env:
           AWT_USERNAME: ${{ secrets.AWT_USERNAME }}
           AWT_PASSWORD: ${{ secrets.AWT_PASSWORD }}
           AWT_API_KEY: ${{ secrets.AWT_API_KEY }}
           GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
           GCS_PROJECT_ID: ${{ secrets.GCS_PROJECT_ID }}
-        run: python awt_data_sync.py
+        run: |
+          echo "${{ secrets.GOOGLE_CREDENTIALS }}" > gcp-key.json
+          export GOOGLE_APPLICATION_CREDENTIALS="gcp-key.json"
+          python awt_data_sync.py
