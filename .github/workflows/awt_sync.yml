@@ -26,8 +26,8 @@ jobs:
 
     - name: Set up Google Cloud credentials
       run: |
-        # Write credentials from secret to file
-        echo "${{ secrets.GOOGLE_CREDENTIALS }}" > gcp-key.json
+        # Decode base64 credentials to file
+        echo "${{ secrets.GOOGLE_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
         # Validate the JSON is properly formatted
         python -c "import json; data=json.load(open('gcp-key.json')); print(f'✓ JSON valid. Private key: {len(data[\"private_key\"])} chars, Project: {data[\"project_id\"]}')" || (echo "JSON invalid" && cat gcp-key.json && exit 1)
       shell: bash
