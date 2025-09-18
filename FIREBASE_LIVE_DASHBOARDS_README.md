@@ -4,7 +4,7 @@ This guide transforms your AWT data sync into a **real-time live dashboard syste
 
 ## 🎯 What You'll Build
 
-- ✅ **Real-time AWT data sync** (every 15 minutes)
+- ✅ **Daily AWT data sync** (at 5 AM UTC)
 - ✅ **Live dashboard** that updates automatically
 - ✅ **Interactive maps** showing animal movements
 - ✅ **Real-time charts** and statistics
@@ -130,7 +130,7 @@ import * as functions from "firebase-functions";
 import { exec } from "child_process";
 
 export const syncAWTData = functions.pubsub
-    .schedule("every 15 minutes")
+    .schedule("0 5 * * *")
     .onRun(async (context) => {
         // Run your Python sync script
         exec("python awt_data_sync.py", (error, stdout, stderr) => {
