@@ -33,15 +33,11 @@ jobs:
 
     - name: Set up Google Cloud credentials
       run: |
-        # Set up credentials if GOOGLE_CREDENTIALS secret exists and is not empty
-        if [ "${{ secrets.GOOGLE_CREDENTIALS }}" != "" ]; then
-          echo "Setting up Google Cloud credentials..."
-          printf '%s\n' "${{ secrets.GOOGLE_CREDENTIALS }}" > gcp-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/gcp-key.json" >> $GITHUB_ENV
-          echo "✓ Google credentials written successfully"
-        else
-          echo "No GOOGLE_CREDENTIALS secret found, skipping GCS setup"
-        fi
+        # Always try to set up GCS credentials - Python handles failures gracefully
+        echo "Setting up Google Cloud credentials..."
+        printf '%s\n' "${{ secrets.GOOGLE_CREDENTIALS }}" > gcp-key.json
+        echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/gcp-key.json" >> $GITHUB_ENV
+        echo "✓ Google credentials setup attempted"
 
     - name: Run AWT data sync
       run: |
