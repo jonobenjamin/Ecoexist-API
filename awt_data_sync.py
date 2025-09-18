@@ -9,9 +9,16 @@ import os
 import json
 import requests
 from datetime import datetime, timedelta
-from google.cloud import storage
 import logging
 from typing import Optional, Dict, Any
+
+# Firebase imports (optional - only if Firebase is configured)
+try:
+    import firebase_admin
+    from firebase_admin import credentials, db
+    FIREBASE_AVAILABLE = True
+except ImportError:
+    FIREBASE_AVAILABLE = False
 
 # Configure logging
 logging.basicConfig(
@@ -28,28 +35,19 @@ class AWTDataSync:
         self.api_password = os.getenv('AWT_PASSWORD')
         self.api_key = os.getenv('AWT_API_KEY')
 
-        # Google Cloud Storage Configuration
-        self.gcs_bucket_name = os.getenv('GCS_BUCKET_NAME')
-        self.gcs_project_id = os.getenv('GCS_PROJECT_ID')
+        # Storage Configuration (Firebase preferred for live dashboards)
+        self.firebase_available = False
+        self.gcs_available = False
 
         # Validate required environment variables
         self._validate_config()
 
-        # Initialize GCS client (optional for testing)
-        if self.gcs_project_id and self.gcs_bucket_name:
-            try:
-                self.gcs_client = storage.Client(project=self.gcs_project_id)
-                self.bucket = self.gcs_client.bucket(self.gcs_bucket_name)
-                # Test the connection by trying to get bucket info
-                self.bucket.reload()
-                self.gcs_available = True
-                print("✓ Google Cloud Storage available")
-            except Exception as e:
-                print(f"Warning: Google Cloud Storage not available: {e}")
-                self.gcs_available = False
-        else:
-            print("GCS_PROJECT_ID or GCS_BUCKET_NAME not set, Google Cloud Storage disabled")
-            self.gcs_available = False
+        # Initialize Firebase (preferred for live dashboards)
+        self._initialize_firebase()
+
+        # Initialize GCS as fallback
+        if not self.firebase_available:
+            self._initialize_gcs()
 
     def _validate_config(self):
         """Validate that all required environment variables are set."""
@@ -67,8 +65,51 @@ class AWTDataSync:
         # Check optional vars and warn if missing
         missing_optional = [var for var in optional_vars if not os.getenv(var)]
         if missing_optional:
-            print(f"Warning: Optional GCS variables not set: {', '.join(missing_optional)}")
-            print("Google Cloud Storage will be disabled")
+            print(f"Warning: Optional storage variables not set: {', '.join(missing_optional)}")
+            print("Firebase/GCS storage will be disabled")
+
+    def _initialize_firebase(self):
+        """Initialize Firebase for live dashboard support."""
+        firebase_creds_path = os.getenv('FIREBASE_CREDENTIALS_PATH')
+
+        if FIREBASE_AVAILABLE and firebase_creds_path:
+            try:
+                cred = credentials.Certificate(firebase_creds_path)
+                firebase_admin.initialize_app(cred, {
+                    'databaseURL': os.getenv('FIREBASE_DATABASE_URL', 'https://awt-live-dashboards-default-rtdb.firebaseio.com/')
+                })
+                self.firebase_available = True
+                print("✓ Firebase initialized for live dashboards")
+            except Exception as e:
+                print(f"Warning: Firebase initialization failed: {e}")
+                print("Falling back to GCS or local storage")
+        else:
+            print("Firebase credentials not configured")
+
+    def _initialize_gcs(self):
+        """Initialize Google Cloud Storage as fallback."""
+        if not FIREBASE_AVAILABLE:
+            return
+
+        # Google Cloud Storage Configuration
+        self.gcs_bucket_name = os.getenv('GCS_BUCKET_NAME')
+        self.gcs_project_id = os.getenv('GCS_PROJECT_ID')
+
+        if self.gcs_project_id and self.gcs_bucket_name:
+            try:
+                from google.cloud import storage
+                self.gcs_client = storage.Client(project=self.gcs_project_id)
+                self.bucket = self.gcs_client.bucket(self.gcs_bucket_name)
+                # Test the connection by trying to get bucket info
+                self.bucket.reload()
+                self.gcs_available = True
+                print("✓ Google Cloud Storage available")
+            except Exception as e:
+                print(f"Warning: Google Cloud Storage not available: {e}")
+                self.gcs_available = False
+        else:
+            print("GCS_PROJECT_ID or GCS_BUCKET_NAME not set, Google Cloud Storage disabled")
+            self.gcs_available = False
 
     def _get_auth_headers(self) -> Dict[str, str]:
         """Get authentication headers for API requests."""
@@ -252,7 +293,50 @@ class AWTDataSync:
             logger.info("No new data available")
 
     def _append_to_cumulative_data(self, new_data):
-        """Append new data to the cumulative dataset in GCS."""
+        """Append new data to Firebase (preferred) or GCS."""
+        try:
+            if self.firebase_available:
+                return self._append_to_firebase(new_data)
+            elif self.gcs_available:
+                return self._append_to_gcs_cumulative(new_data)
+            else:
+                logger.warning("No storage backend available - data not saved!")
+                return
+        except Exception as e:
+            logger.error(f"Failed to append to cumulative data: {e}")
+            # Fallback: try alternative storage
+            if self.firebase_available and self.gcs_available:
+                logger.info("Trying alternative storage...")
+                # If Firebase failed, try GCS
+                if 'firebase' in str(e).lower():
+                    return self._append_to_gcs_cumulative(new_data)
+                # If GCS failed, try Firebase
+                else:
+                    return self._append_to_firebase(new_data)
+
+    def _append_to_firebase(self, new_data):
+        """Append new data to Firebase Realtime Database."""
+        ref = db.reference('awt-tracking-data')
+
+        # Get existing data
+        existing_data = ref.get() or []
+
+        # Append new data
+        if isinstance(existing_data, list) and isinstance(new_data, list):
+            combined_data = existing_data + new_data
+        elif isinstance(existing_data, list):
+            combined_data = existing_data + [new_data]
+        elif isinstance(new_data, list):
+            combined_data = [existing_data] + new_data
+        else:
+            combined_data = [existing_data, new_data]
+
+        # Update Firebase
+        ref.set(combined_data)
+        logger.info(f"✓ Updated Firebase with {len(combined_data)} total records")
+
+    def _append_to_gcs_cumulative(self, new_data):
+        """Append new data to GCS (legacy method)."""
         cumulative_filename = "awt_tracking_data_cumulative.json"
 
         try:
@@ -288,7 +372,7 @@ class AWTDataSync:
             logger.info(f"✓ Uploaded cumulative dataset with {len(combined_data)} total records")
 
         except Exception as e:
-            logger.error(f"Failed to append to cumulative data: {e}")
+            logger.error(f"Failed to append to GCS: {e}")
             # Fallback: upload new data as separate incremental file
             timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
             filename = f"awt_tracking_data_incremental_{timestamp}.json"
