@@ -1,5 +1,6 @@
 # Credentials and secrets
 gcp-key.json
+*-*.json
 .firebase/
 firebase-key.json
 *.pem

@@ -46,12 +46,12 @@ class AWTDataSync:
             'GCS_BUCKET_NAME', 'GCS_PROJECT_ID'
         ]
 
-        missing_vars = [var for var in required_vars if not os.getenv(var)]
+        missing_vars = [var for var in required_vars if not os.getenv(var) or os.getenv(var) == ""]
         if missing_vars:
             raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
         # Check optional vars and warn if missing
-        missing_optional = [var for var in optional_vars if not os.getenv(var)]
+        missing_optional = [var for var in optional_vars if not os.getenv(var) or os.getenv(var) == ""]
         if missing_optional:
             print(f"Warning: Optional storage variables not set: {', '.join(missing_optional)}")
             print("GCS storage will be disabled")
