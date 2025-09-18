@@ -80,25 +80,38 @@ class AWTDataSync:
 
     def _get_auth_headers(self) -> Dict[str, str]:
         """Get authentication headers for API requests."""
+        # Get bearer token using API key + credentials
+        token = self._get_access_token()
+
         return {
             'Content-Type': 'application/json',
             'X-API-Key': self.api_key,
-            'Authorization': f'Bearer {self._get_access_token()}'
+            'Authorization': f'Bearer {token}'
         }
 
     def _get_access_token(self) -> str:
-        """Obtain access token using username and password."""
-        auth_url = f"{self.base_url}/auth/login"
+        """Obtain bearer token using API key + user credentials."""
+        # Use API key + username + password for authentication
+        auth_url = f"{self.base_url}/token"
         auth_data = {
+            'api_key': self.api_key,
             'username': self.api_username,
             'password': self.api_password
         }
 
         try:
-            response = requests.post(auth_url, json=auth_data)
+            response = requests.post(auth_url, json=auth_data, timeout=10)
             response.raise_for_status()
             token_data = response.json()
-            return token_data['access_token']
+
+            # Extract the bearer token
+            token = token_data.get('access_token') or token_data.get('token') or token_data.get('bearer_token')
+            if token:
+                logger.info("Successfully obtained bearer token")
+                return token
+            else:
+                raise ValueError(f"No token found in response: {token_data}")
+
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to authenticate: {e}")
             raise
