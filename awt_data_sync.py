@@ -8,6 +8,7 @@ Supports initial 90-day data pull and daily incremental updates.
 import os
 import json
 import requests
+import base64
 from datetime import datetime, timedelta
 import logging
 from typing import Optional, Dict, Any
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 class AWTDataSync:
     def __init__(self):
         # API Configuration
-        self.base_url = "https://api-next.africawildlifetracking.com"
+        self.base_url = "https://api-next.africawildlifetracking.com/v2"
         self.api_username = os.getenv('AWT_USERNAME')
         self.api_password = os.getenv('AWT_PASSWORD')
         self.api_key = os.getenv('AWT_API_KEY')
@@ -90,22 +91,25 @@ class AWTDataSync:
         }
 
     def _get_access_token(self) -> str:
-        """Obtain bearer token using API key + user credentials."""
-        # Use API key + username + password for authentication
+        """Obtain bearer token using Basic Auth + X-API-KEY header."""
         auth_url = f"{self.base_url}/token"
-        auth_data = {
-            'api_key': self.api_key,
-            'username': self.api_username,
-            'password': self.api_password
+
+        # Create Basic Authentication header
+        credentials = f"{self.api_username}:{self.api_password}"
+        encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
+
+        headers = {
+            'X-API-KEY': self.api_key,
+            'Authorization': f'Basic {encoded_credentials}'
         }
 
         try:
-            response = requests.post(auth_url, json=auth_data, timeout=10)
+            response = requests.post(auth_url, headers=headers, timeout=10)
             response.raise_for_status()
             token_data = response.json()
 
-            # Extract the bearer token
-            token = token_data.get('access_token') or token_data.get('token') or token_data.get('bearer_token')
+            # Extract the token from response
+            token = token_data.get('token')
             if token:
                 logger.info("Successfully obtained bearer token")
                 return token
@@ -169,24 +173,55 @@ class AWTDataSync:
             content_type='application/json'
         )
 
-    def _fetch_data(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
-        """Fetch data from AWT API."""
-        url = f"{self.base_url}/api/v1/tracking-data"
+    def _fetch_data_paginated(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> list:
+        """Fetch all paginated data from AWT API."""
+        url = f"{self.base_url}/data"
+        all_data = []
+        offset = 0
 
+        # Convert dates to epoch seconds
         params = {}
         if start_date:
-            params['start_date'] = start_date
+            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            params['start'] = int(start_dt.timestamp())
         if end_date:
-            params['end_date'] = end_date
+            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            params['end'] = int(end_dt.timestamp())
 
-        try:
-            headers = self._get_auth_headers()
-            response = requests.get(url, headers=headers, params=params)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to fetch data from AWT API: {e}")
-            raise
+        headers = self._get_auth_headers()
+
+        while True:
+            # Add offset to params
+            current_params = params.copy()
+            if offset > 0:
+                current_params['offset'] = offset
+
+            try:
+                response = requests.get(url, headers=headers, params=current_params, timeout=30)
+                response.raise_for_status()
+                data = response.json()
+
+                if not data:  # No more data
+                    break
+
+                if isinstance(data, list):
+                    all_data.extend(data)
+                    logger.info(f"Fetched {len(data)} records (total: {len(all_data)}) with offset {offset}")
+                    offset += len(data)  # Use actual count for next offset
+                else:
+                    logger.warning(f"Unexpected data format: {type(data)}")
+                    break
+
+                # Rate limiting: API allows 1 request every 30 seconds for /data
+                import time
+                time.sleep(1)  # Be conservative
+
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Failed to fetch data from AWT API at offset {offset}: {e}")
+                raise
+
+        logger.info(f"Total records fetched: {len(all_data)}")
+        return all_data
 
     def _upload_to_gcs(self, data: Dict[str, Any], filename: str):
         """Upload data to Google Cloud Storage."""
@@ -223,22 +258,18 @@ class AWTDataSync:
         end_date = datetime.utcnow()
         start_date = end_date - timedelta(days=90)
 
-        logger.info(f"Fetching data from {start_date.date()} to {end_date.date()}")
+        logger.info(f"Performing initial 90-day data sync...")
+        logger.info(f"Fetching data from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
 
-        data = self._fetch_data(
-            start_date=start_date.strftime('%Y-%m-%d'),
-            end_date=end_date.strftime('%Y-%m-%d')
+        data = self._fetch_data_paginated(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat()
         )
 
         if data:
             # Create initial cumulative dataset
-            cumulative_filename = "awt_tracking_data_cumulative.json"
-            blob = self.bucket.blob(f"awt_data/{cumulative_filename}")
-            blob.upload_from_string(
-                json.dumps(data, indent=2),
-                content_type='application/json'
-            )
-            logger.info(f"✓ Created initial cumulative dataset with {len(data) if isinstance(data, list) else 1} records")
+            self._append_to_cumulative_data(data)
+            logger.info(f"✓ Created initial cumulative dataset with {len(data)} records")
 
             # Mark first run as complete
             self._mark_first_run_complete()
@@ -257,18 +288,19 @@ class AWTDataSync:
 
         end_date = datetime.utcnow()
 
-        logger.info(f"Fetching incremental data from {start_date.date()} to {end_date.date()}")
+        logger.info(f"Performing incremental daily sync...")
+        logger.info(f"Fetching data from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
 
-        data = self._fetch_data(
-            start_date=start_date.strftime('%Y-%m-%d'),
-            end_date=end_date.strftime('%Y-%m-%d')
+        data = self._fetch_data_paginated(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat()
         )
 
         if data:
             # Append new data to cumulative dataset
             self._append_to_cumulative_data(data)
             self._update_last_sync_time()
-            logger.info(f"✓ Successfully added {len(data) if isinstance(data, list) else 1} new records to cumulative dataset")
+            logger.info(f"✓ Successfully added {len(data)} new records to cumulative dataset")
         else:
             logger.info("No new data available")
 
