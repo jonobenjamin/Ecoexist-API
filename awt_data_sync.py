@@ -214,7 +214,8 @@ class AWTDataSync:
 
                 # Rate limiting: API allows 1 request every 30 seconds for /data
                 import time
-                time.sleep(1)  # Be conservative
+                logger.info("Rate limiting: waiting 30 seconds before next request...")
+                time.sleep(30)  # API requires 30 seconds between requests
 
             except requests.exceptions.RequestException as e:
                 logger.error(f"Failed to fetch data from AWT API at offset {offset}: {e}")
