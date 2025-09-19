@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWT Wildlife Tracking Dashboard</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Bootstrap CSS for styling -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Chart.js for additional visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #2c5530, #4a7c59);
+            border-bottom: 3px solid #1a4a2e;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+            color: white !important;
+        }
+
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #2c5530, #4a7c59);
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: bold;
+        }
+
+        #map {
+            height: 600px;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .stats-card {
+            background: linear-gradient(135deg, #ffffff, #f8f9fa);
+            border-left: 4px solid #2c5530;
+        }
+
+        .btn-custom {
+            background: linear-gradient(135deg, #2c5530, #4a7c59);
+            border: none;
+            color: white;
+        }
+
+        .btn-custom:hover {
+            background: linear-gradient(135deg, #1a4a2e, #2c5530);
+            color: white;
+        }
+
+        .filter-panel {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .animal-marker {
+            background-color: #2c5530;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .latest-marker {
+            background-color: #ff6b35;
+            border: 3px solid white;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 400px;
+            flex-direction: column;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #2c5530;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tag-legend {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .tag-color {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                🦏 AWT Wildlife Tracking Dashboard
+            </a>
+            <div class="ms-auto">
+                <span class="navbar-text text-white me-3">
+                    Real-time Animal Movement Data
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Main Map Column -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">📍 Animal Movement Map</h5>
+                    </div>
+                    <div id="map"></div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- Statistics Cards -->
+                <div class="row">
+                    <div class="col-md-6 col-lg-12">
+                        <div class="card stats-card">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">Total Animals</h6>
+                                <h3 class="text-success mb-0" id="totalAnimals">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-12">
+                        <div class="card stats-card">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">Total Locations</h6>
+                                <h3 class="text-primary mb-0" id="totalLocations">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-12">
+                        <div class="card stats-card">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">Date Range</h6>
+                                <p class="mb-0" id="dateRange">--</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-12">
+                        <div class="card stats-card">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">Last Update</h6>
+                                <p class="mb-0" id="lastUpdate">--</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">🔍 Filters</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="tagFilter" class="form-label">Animal Tag ID</label>
+                            <select class="form-select" id="tagFilter">
+                                <option value="">All Animals</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="dateFrom" class="form-label">From Date</label>
+                            <input type="date" class="form-control" id="dateFrom">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="dateTo" class="form-label">To Date</label>
+                            <input type="date" class="form-control" id="dateTo">
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="showLatest">
+                                <label class="form-check-label" for="showLatest">
+                                    Show only latest positions
+                                </label>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-custom w-100" onclick="applyFilters()">
+                            Apply Filters
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Animal Tags Legend -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">🐾 Animal Tags</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="tagLegend"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">📊 Recent Locations</h6>
+                        <button class="btn btn-sm btn-outline-primary" onclick="exportData()">
+                            Export CSV
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped" id="dataTable">
+                                <thead>
+                                    <tr>
+                                        <th>Tag ID</th>
+                                        <th>Date/Time</th>
+                                        <th>Latitude</th>
+                                        <th>Longitude</th>
+                                        <th>Temperature (°C)</th>
+                                        <th>Battery (V)</th>
+                                        <th>Movement</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dataTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p class="mt-3">Loading wildlife data...</p>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let map;
+        let allData = [];
+        let filteredData = [];
+        let markers = [];
+        let tagColors = {};
+        let colorIndex = 0;
+        const colors = [
+            '#2c5530', '#4a7c59', '#6a9d7a', '#8cbe9c',
+            '#ff6b35', '#f7931e', '#ffb627', '#ffea00',
+            '#0077b6', '#0096c7', '#00b4d8', '#48cae4'
+        ];
+
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([-25.0, 28.0], 6); // Centered on Southern Africa
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        // Load data from GCS
+        async function loadData() {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.display = 'flex';
+
+            try {
+                // GCS bucket and file path from your Python script
+                // Update this with your actual GCS_BUCKET_NAME from GitHub secrets
+                const bucketName = 'YOUR_BUCKET_NAME_HERE'; // Replace with your actual bucket name
+                const fileName = 'awt_data/awt_tracking_data_cumulative.json';
+
+                console.log(`Loading data from: https://storage.googleapis.com/${bucketName}/${fileName}`);
+
+                const response = await fetch(`https://storage.googleapis.com/${bucketName}/${fileName}`);
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load data from GCS: ${response.status} ${response.statusText}`);
+                }
+
+                allData = await response.json();
+                console.log(`Loaded ${allData.length} records from GCS`);
+                processData();
+
+            } catch (error) {
+                console.error('Error loading data from GCS:', error);
+                alert(`Failed to load wildlife tracking data: ${error.message}\n\nPlease ensure:\n1. GCS bucket is public\n2. File exists at awt_data/awt_tracking_data_cumulative.json\n3. CORS is enabled for your domain`);
+                allData = []; // Set empty array so UI shows no data
+                processData();
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+
+        // Process and display data
+        function processData() {
+            if (!allData || allData.length === 0) {
+                alert('No data available');
+                return;
+            }
+
+            // Update statistics
+            updateStatistics();
+
+            // Populate tag filter
+            populateTagFilter();
+
+            // Apply initial filters (show all data)
+            applyFilters();
+
+            // Update tag legend
+            updateTagLegend();
+        }
+
+        function updateStatistics() {
+            const uniqueTags = new Set(allData.map(d => d.tagId));
+            document.getElementById('totalAnimals').textContent = uniqueTags.size;
+            document.getElementById('totalLocations').textContent = allData.length;
+
+            // Calculate date range
+            const timestamps = allData.map(d => d.timestamp);
+            const minDate = new Date(Math.min(...timestamps) * 1000);
+            const maxDate = new Date(Math.max(...timestamps) * 1000);
+
+            document.getElementById('dateRange').textContent =
+                `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
+            document.getElementById('lastUpdate').textContent = maxDate.toLocaleString();
+        }
+
+        function populateTagFilter() {
+            const tagFilter = document.getElementById('tagFilter');
+            const uniqueTags = [...new Set(allData.map(d => d.tagId))].sort();
+
+            uniqueTags.forEach(tagId => {
+                const option = document.createElement('option');
+                option.value = tagId;
+                option.textContent = `Tag ${tagId}`;
+                tagFilter.appendChild(option);
+            });
+        }
+
+        function updateTagLegend() {
+            const legend = document.getElementById('tagLegend');
+            const uniqueTags = [...new Set(allData.map(d => d.tagId))].sort();
+
+            legend.innerHTML = '';
+
+            uniqueTags.forEach(tagId => {
+                if (!tagColors[tagId]) {
+                    tagColors[tagId] = colors[colorIndex % colors.length];
+                    colorIndex++;
+                }
+
+                const item = document.createElement('div');
+                item.className = 'tag-legend';
+                item.innerHTML = `
+                    <span class="tag-color" style="background-color: ${tagColors[tagId]}"></span>
+                    Tag ${tagId}
+                `;
+                legend.appendChild(item);
+            });
+        }
+
+        function applyFilters() {
+            const tagFilter = document.getElementById('tagFilter').value;
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
+            const showLatest = document.getElementById('showLatest').checked;
+
+            filteredData = allData.filter(item => {
+                // Tag filter
+                if (tagFilter && item.tagId != tagFilter) {
+                    return false;
+                }
+
+                // Date filters
+                if (dateFrom) {
+                    const fromDate = new Date(dateFrom).getTime() / 1000;
+                    if (item.timestamp < fromDate) return false;
+                }
+
+                if (dateTo) {
+                    const toDate = new Date(dateTo).getTime() / 1000;
+                    if (item.timestamp > toDate) return false;
+                }
+
+                return true;
+            });
+
+            // If showing latest only, get most recent position for each tag
+            if (showLatest) {
+                const latestByTag = {};
+                filteredData.forEach(item => {
+                    if (!latestByTag[item.tagId] || item.timestamp > latestByTag[item.tagId].timestamp) {
+                        latestByTag[item.tagId] = item;
+                    }
+                });
+                filteredData = Object.values(latestByTag);
+            }
+
+            updateMap();
+            updateDataTable();
+        }
+
+        function updateMap() {
+            // Clear existing markers
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            // Add new markers
+            filteredData.forEach(item => {
+                const color = tagColors[item.tagId] || '#2c5530';
+                const isLatest = filteredData.length === 1 ||
+                    item.timestamp === Math.max(...filteredData.filter(d => d.tagId === item.tagId).map(d => d.timestamp));
+
+                const markerHtml = isLatest ?
+                    `<div class="latest-marker" style="background-color: ${color}"></div>` :
+                    `<div class="animal-marker" style="background-color: ${color}"></div>`;
+
+                const marker = L.marker([item.latitude, item.longitude], {
+                    icon: L.divIcon({
+                        html: markerHtml,
+                        className: 'custom-marker',
+                        iconSize: [16, 16],
+                        iconAnchor: [8, 8]
+                    })
+                });
+
+                marker.bindPopup(`
+                    <strong>Tag ${item.tagId}</strong><br>
+                    Date: ${new Date(item.timestamp * 1000).toLocaleString()}<br>
+                    Location: ${item.latitude.toFixed(6)}, ${item.longitude.toFixed(6)}<br>
+                    Temperature: ${item.temperature}°C<br>
+                    Battery: ${item.voltage}V<br>
+                    Movement: ${item.movement ? 'Yes' : 'No'}<br>
+                    Speed: ${item.speed} km/h
+                `);
+
+                marker.addTo(map);
+                markers.push(marker);
+            });
+
+            // Fit map to markers if any exist
+            if (markers.length > 0) {
+                const group = new L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        function updateDataTable() {
+            const tbody = document.getElementById('dataTableBody');
+            tbody.innerHTML = '';
+
+            // Sort by timestamp (newest first) and limit to 100 rows
+            const sortedData = filteredData
+                .sort((a, b) => b.timestamp - a.timestamp)
+                .slice(0, 100);
+
+            sortedData.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.tagId}</td>
+                    <td>${new Date(item.timestamp * 1000).toLocaleString()}</td>
+                    <td>${item.latitude.toFixed(6)}</td>
+                    <td>${item.longitude.toFixed(6)}</td>
+                    <td>${item.temperature}</td>
+                    <td>${item.voltage}</td>
+                    <td>${item.movement ? '✓' : '✗'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function exportData() {
+            if (filteredData.length === 0) {
+                alert('No data to export');
+                return;
+            }
+
+            // Create CSV content
+            const headers = ['Tag ID', 'Timestamp', 'Latitude', 'Longitude', 'Temperature', 'Voltage', 'Movement', 'Speed'];
+            const csvContent = [
+                headers.join(','),
+                ...filteredData.map(item => [
+                    item.tagId,
+                    new Date(item.timestamp * 1000).toISOString(),
+                    item.latitude,
+                    item.longitude,
+                    item.temperature,
+                    item.voltage,
+                    item.movement,
+                    item.speed
+                ].join(','))
+            ].join('\n');
+
+            // Download CSV
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `awt-data-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            loadData();
+        });
+
+        // Auto-refresh every 5 minutes
+        setInterval(loadData, 300000);
+    </script>
+</body>
+</html>
