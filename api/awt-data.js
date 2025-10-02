@@ -109,25 +109,29 @@ const bucketName = process.env.GCS_BUCKET_NAME;
 const fileName = 'awt_data/awt_tracking_data_cumulative.json';
 
 module.exports = async (req, res) => {
-    // Enable CORS
+    // Enable CORS for all requests first
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, X-Requested-With, Accept');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, X-Requested-With, Accept, User-Agent');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
 
     // Handle preflight OPTIONS request
     if (req.method === 'OPTIONS') {
+        console.log('Handling OPTIONS preflight request');
         return res.status(200).end();
-    }
-
-    // Only allow GET requests
-    if (req.method !== 'GET') {
-        return res.status(405).json({ error: 'Method not allowed' });
     }
 
     // Log request details for debugging
     console.log('Request method:', req.method);
-    console.log('Request headers:', req.headers);
+    console.log('Request headers keys:', Object.keys(req.headers));
+    console.log('Origin header:', req.headers.origin);
+    console.log('Authorization header present:', !!req.headers.authorization);
+
+    // Only allow GET requests
+    if (req.method !== 'GET') {
+        console.log('Rejecting non-GET request:', req.method);
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
 
     // Check authentication
     const auth = req.headers.authorization;
@@ -176,5 +180,3 @@ module.exports = async (req, res) => {
         });
     }
 };
-
-
