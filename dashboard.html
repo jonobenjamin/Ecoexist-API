@@ -490,8 +490,8 @@
             loadingOverlay.style.display = 'flex';
 
             try {
-                // Use secure Railway API endpoint
-                const apiUrl = 'https://ecoexist-api-production.up.railway.app/api/awt-data';
+                // Load from secure Vercel API
+                const apiUrl = 'https://ecoexist-api-git-main-jonobenjamins-projects.vercel.app/api/awt-data';
 
                 console.log(`Loading data from secure API: ${apiUrl}`);
 
@@ -514,8 +514,8 @@
                 processData();
 
             } catch (error) {
-                console.error('Error loading data from API:', error);
-                alert(`Failed to load wildlife tracking data: ${error.message}\n\nPlease ensure:\n1. Railway API URL is correct in dashboard.html\n2. Railway environment variables are set\n3. API authentication is working`);
+                console.error('Error loading data:', error);
+                alert(`Failed to load wildlife tracking data: ${error.message}\n\nPlease ensure:\n1. Vercel API URL is correct\n2. Environment variables are set in Vercel\n3. API authentication is working`);
                 allData = []; // Set empty array so UI shows no data
                 processData();
             } finally {
