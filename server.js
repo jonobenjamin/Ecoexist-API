@@ -30,17 +30,35 @@ function authenticate(req, res, next) {
     }
 }
 
+// Debug logging
+console.log('=== Environment Variables ===');
+console.log('PORT:', process.env.PORT);
+console.log('GCS_PROJECT_ID:', process.env.GCS_PROJECT_ID ? 'SET' : 'NOT SET');
+console.log('GCS_BUCKET_NAME:', process.env.GCS_BUCKET_NAME ? 'SET' : 'NOT SET');
+console.log('GOOGLE_APPLICATION_CREDENTIALS:', process.env.GOOGLE_APPLICATION_CREDENTIALS ? 'SET (length: ' + process.env.GOOGLE_APPLICATION_CREDENTIALS.length + ')' : 'NOT SET');
+console.log('=============================');
+
 // Initialize Google Cloud Storage
 let storage;
-if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    // Parse JSON credentials from environment variable
-    const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
-    storage = new Storage({
-        projectId: process.env.GCS_PROJECT_ID,
-        credentials: credentials
-    });
-} else {
-    // Fallback to default credentials
+let credentials = null;
+
+try {
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        // Try to parse credentials
+        credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+        console.log('Credentials parsed successfully');
+        storage = new Storage({
+            projectId: process.env.GCS_PROJECT_ID || credentials.project_id,
+            credentials: credentials
+        });
+    } else {
+        console.warn('No credentials found, using default');
+        storage = new Storage({
+            projectId: process.env.GCS_PROJECT_ID
+        });
+    }
+} catch (error) {
+    console.error('Error parsing credentials:', error.message);
     storage = new Storage({
         projectId: process.env.GCS_PROJECT_ID
     });
@@ -49,39 +67,58 @@ if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
 const bucketName = process.env.GCS_BUCKET_NAME;
 const fileName = 'awt_data/awt_tracking_data_cumulative.json';
 
+console.log('Using bucket:', bucketName);
+console.log('Using file:', fileName);
+
 // API endpoint to get wildlife data
 app.get('/api/awt-data', authenticate, async (req, res) => {
     try {
         console.log('Authenticated request for AWT data');
 
+        if (!bucketName) {
+            return res.status(500).json({ 
+                error: 'Server configuration error: GCS_BUCKET_NAME not set' 
+            });
+        }
+
         const bucket = storage.bucket(bucketName);
         const file = bucket.file(fileName);
 
+        console.log('Attempting to download from GCS...');
+        
         // Download the file content
         const [content] = await file.download();
         const data = JSON.parse(content.toString());
 
-        console.log(`Serving ${data.length} records`);
+        console.log(`Successfully served ${data.length} records`);
         res.json(data);
 
     } catch (error) {
         console.error('Error fetching data from GCS:', error);
         res.status(500).json({
             error: 'Failed to fetch wildlife data',
-            details: error.message
+            details: error.message,
+            bucket: bucketName,
+            file: fileName
         });
     }
 });
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        config: {
+            bucketConfigured: !!bucketName,
+            credentialsConfigured: !!credentials,
+            projectId: process.env.GCS_PROJECT_ID || 'not set'
+        }
+    });
 });
 
 app.listen(port, () => {
-    console.log(`AWT Dashboard API server running on port ${port}`);
-    console.log(`GCS Project ID: ${process.env.GCS_PROJECT_ID || 'NOT SET'}`);
-    console.log(`GCS Bucket: ${bucketName || 'NOT SET'}`);
-    console.log(`Data File: ${fileName}`);
-    console.log(`Credentials: ${process.env.GOOGLE_APPLICATION_CREDENTIALS ? 'SET' : 'NOT SET'}`);
+    console.log(`\n🚀 AWT Dashboard API server running on port ${port}`);
+    console.log(`📊 Health check: http://localhost:${port}/health`);
+    console.log(`🔐 API endpoint: http://localhost:${port}/api/awt-data\n`);
 });
