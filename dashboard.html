@@ -536,17 +536,26 @@
                 return;
             }
 
+            console.log(`Processing ${allData.length} total records...`);
+
             // Update statistics
             updateStatistics();
 
             // Populate tag filter
             populateTagFilter();
 
-            // Apply initial filters (show all data)
-            applyFilters();
-
             // Update tag legend
             updateTagLegend();
+
+            // Auto-enable "show latest only" if dataset is large
+            const showLatestCheckbox = document.getElementById('showLatest');
+            if (allData.length > 1000) {
+                showLatestCheckbox.checked = true;
+                console.log('Large dataset detected - showing latest positions only');
+            }
+
+            // Apply initial filters
+            applyFilters();
         }
 
         function updateStatistics() {
@@ -644,8 +653,16 @@
             markers.forEach(marker => map.removeLayer(marker));
             markers = [];
 
+            // Limit markers to prevent browser freeze
+            const maxMarkers = 5000;
+            const dataToDisplay = filteredData.slice(0, maxMarkers);
+            
+            if (filteredData.length > maxMarkers) {
+                console.warn(`Showing ${maxMarkers} of ${filteredData.length} points. Use filters to see more specific data.`);
+            }
+
             // Add new markers
-            filteredData.forEach(item => {
+            dataToDisplay.forEach(item => {
                 const color = tagColors[item.tagId] || '#2c5530';
                 const isLatest = filteredData.length === 1 ||
                     item.timestamp === Math.max(...filteredData.filter(d => d.tagId === item.tagId).map(d => d.timestamp));
