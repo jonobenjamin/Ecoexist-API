@@ -6,9 +6,17 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// Middleware - Enable CORS for all origins
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
 app.use(express.json());
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Simple authentication middleware
 function authenticate(req, res, next) {
