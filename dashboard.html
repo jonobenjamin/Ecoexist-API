@@ -425,6 +425,11 @@
             if (username === 'jono' && password === 'password') {
                 sessionStorage.setItem('awt_logged_in', 'true');
                 checkLoginStatus();
+                
+                // Initialize map and load data after successful login
+                initMap();
+                loadData();
+                
                 return true;
             }
             return false;
@@ -491,7 +496,7 @@
 
             try {
                 // Load from secure Vercel API
-                const apiUrl = 'https://ecoexist-api-git-main-jonobenjamins-projects.vercel.app/api/awt-data';
+                const apiUrl = 'https://ecoexist-api.vercel.app/api/awt-data';
 
                 console.log(`Loading data from secure API: ${apiUrl}`);
 
@@ -740,12 +745,22 @@
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
             checkLoginStatus();
-            initMap();
-            loadData();
+            
+            // Only load data if already logged in
+            const isLoggedIn = sessionStorage.getItem('awt_logged_in') === 'true';
+            if (isLoggedIn) {
+                initMap();
+                loadData();
+            }
         });
 
-        // Auto-refresh every 5 minutes
-        setInterval(loadData, 300000);
+        // Auto-refresh every 5 minutes (only if logged in)
+        setInterval(function() {
+            const isLoggedIn = sessionStorage.getItem('awt_logged_in') === 'true';
+            if (isLoggedIn) {
+                loadData();
+            }
+        }, 300000);
     </script>
 </body>
 </html>
