@@ -484,20 +484,26 @@
             }).addTo(map);
         }
 
-        // Load data from GCS
+        // Load data from GCS (temporarily public for demo)
         async function loadData() {
             const loadingOverlay = document.getElementById('loadingOverlay');
             loadingOverlay.style.display = 'flex';
 
             try {
-                // GCS bucket and file path from your Python script
-                // Update this with your actual GCS_BUCKET_NAME from GitHub secrets
-                const bucketName = 'awt-tracking-data'; // Replace with your actual bucket name
-                const fileName = 'awt_data/awt_tracking_data_cumulative.json';
+                // Use secure Railway API endpoint
+                const apiUrl = 'https://ecoexist-api-production.up.railway.app/api/awt-data';
 
-                console.log(`Loading data from: https://storage.googleapis.com/${bucketName}/${fileName}`);
+                console.log(`Loading data from secure API: ${apiUrl}`);
 
-                const response = await fetch(`https://storage.googleapis.com/${bucketName}/${fileName}`);
+                // Create Basic Auth header
+                const authHeader = 'Basic ' + btoa('jono:password');
+
+                const response = await fetch(apiUrl, {
+                    headers: {
+                        'Authorization': authHeader,
+                        'Content-Type': 'application/json'
+                    }
+                });
 
                 if (!response.ok) {
                     throw new Error(`Failed to load data from GCS: ${response.status} ${response.statusText}`);
@@ -508,8 +514,8 @@
                 processData();
 
             } catch (error) {
-                console.error('Error loading data from GCS:', error);
-                alert(`Failed to load wildlife tracking data: ${error.message}\n\nPlease ensure:\n1. GCS bucket is public\n2. File exists at awt_data/awt_tracking_data_cumulative.json\n3. CORS is enabled for your domain`);
+                console.error('Error loading data from API:', error);
+                alert(`Failed to load wildlife tracking data: ${error.message}\n\nPlease ensure:\n1. Railway API URL is correct in dashboard.html\n2. Railway environment variables are set\n3. API authentication is working`);
                 allData = []; // Set empty array so UI shows no data
                 processData();
             } finally {
