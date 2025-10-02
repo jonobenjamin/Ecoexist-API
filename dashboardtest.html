@@ -548,26 +548,54 @@
                 console.log(`Loading data from secure API: ${apiUrl}`);
 
                 // Create Basic Auth header
-                const authHeader = 'Basic ' + btoa('awt_admin_2024:AWT_Secure_P@ssw0rd_2024!');
+                const authHeader = 'Basic ' + btoa('jono:password');
+                console.log('Auth header:', authHeader);
 
-                const response = await fetch(apiUrl, {
-                    headers: {
-                        'Authorization': authHeader,
-                        'Content-Type': 'application/json'
+                console.log('Making fetch request to:', apiUrl);
+                console.log('Auth header value:', authHeader);
+                console.log('Auth header length:', authHeader.length);
+
+                try {
+                    console.log('About to call fetch...');
+                    const response = await fetch(apiUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': authHeader
+                        }
+                    });
+
+                    console.log('Response received');
+                    console.log('Response status:', response.status);
+                    console.log('Response ok:', response.ok);
+                    console.log('Response status text:', response.statusText);
+                    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.log('Error response body:', errorText);
+                        throw new Error(`Failed to load data from GCS: ${response.status} ${response.statusText} - ${errorText}`);
                     }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Failed to load data from GCS: ${response.status} ${response.statusText}`);
+                    allData = await response.json();
+                    console.log(`Loaded ${allData.length} records from GCS`);
+                    processData();
+                } catch (fetchError) {
+                    console.error('Fetch error:', fetchError);
+                    throw fetchError;
                 }
-
-                allData = await response.json();
-                console.log(`Loaded ${allData.length} records from GCS`);
-                processData();
 
             } catch (error) {
                 console.error('Error loading data:', error);
-                alert(`Failed to load wildlife tracking data: ${error.message}\n\nPlease ensure:\n1. Vercel API URL is correct\n2. Environment variables are set in Vercel\n3. API authentication is working`);
+                console.error('Response status:', error.status);
+                
+                let errorMsg = `Failed to load wildlife tracking data: ${error.message}\n\n`;
+                
+                if (error.message.includes('401')) {
+                    errorMsg += 'Authentication Error (401):\n- The API credentials may not match\n- Check if Vercel deployment is up to date';
+                } else {
+                    errorMsg += 'Please ensure:\n1. Vercel API URL is correct\n2. Environment variables are set in Vercel\n3. API is properly deployed';
+                }
+                
+                alert(errorMsg);
                 allData = []; // Set empty array so UI shows no data
                 processData();
             } finally {
