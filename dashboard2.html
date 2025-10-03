@@ -355,9 +355,14 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">📍 Animal Movement Map</h5>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="printMap()">
-                            🖨️ Print PDF
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-info" onclick="fitMapToDataExtent()">
+                                🔍 Fit to Data
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="printMap()">
+                                🖨️ Print JPG
+                            </button>
+                        </div>
                     </div>
                     <div id="map"></div>
                 </div>
@@ -618,6 +623,7 @@
 
             // Add zoom event listener to recalculate label positions
             map.on('zoomend', function() {
+                console.log('Zoom event: clearing labels and recalculating positions');
                 // Reload GeoJSON layers to recalculate label positions
                 loadGeoJsonLayers();
             });
@@ -632,28 +638,29 @@
         function checkLabelCollision(lat, lng) {
             const centerPoint = map.latLngToContainerPoint([lat, lng]);
 
-            // Calculate label bounding box
+            // Calculate label bounding box (with spacing)
             const labelBounds = {
-                left: centerPoint.x - LABEL_WIDTH/2,
-                right: centerPoint.x + LABEL_WIDTH/2,
-                top: centerPoint.y - LABEL_HEIGHT/2,
-                bottom: centerPoint.y + LABEL_HEIGHT/2
+                left: centerPoint.x - (LABEL_WIDTH/2 + MIN_SPACING),
+                right: centerPoint.x + (LABEL_WIDTH/2 + MIN_SPACING),
+                top: centerPoint.y - (LABEL_HEIGHT/2 + MIN_SPACING),
+                bottom: centerPoint.y + (LABEL_HEIGHT/2 + MIN_SPACING)
             };
 
             // Check collision with each existing label
             for (const label of placeLabels) {
                 const existingBounds = {
-                    left: label.x - LABEL_WIDTH/2 - MIN_SPACING,
-                    right: label.x + LABEL_WIDTH/2 + MIN_SPACING,
-                    top: label.y - LABEL_HEIGHT/2 - MIN_SPACING,
-                    bottom: label.y + LABEL_HEIGHT/2 + MIN_SPACING
+                    left: label.x - (LABEL_WIDTH/2 + MIN_SPACING),
+                    right: label.x + (LABEL_WIDTH/2 + MIN_SPACING),
+                    top: label.y - (LABEL_HEIGHT/2 + MIN_SPACING),
+                    bottom: label.y + (LABEL_HEIGHT/2 + MIN_SPACING)
                 };
 
-                // Check if bounding boxes overlap
-                if (!(labelBounds.right < existingBounds.left ||
-                      labelBounds.left > existingBounds.right ||
-                      labelBounds.bottom < existingBounds.top ||
-                      labelBounds.top > existingBounds.bottom)) {
+                // Check if bounding boxes overlap (AABB collision detection)
+                const overlapX = !(labelBounds.right < existingBounds.left || labelBounds.left > existingBounds.right);
+                const overlapY = !(labelBounds.bottom < existingBounds.top || labelBounds.top > existingBounds.bottom);
+
+                if (overlapX && overlapY) {
+                    console.log(`Collision detected for label at (${centerPoint.x}, ${centerPoint.y}) with existing label at (${label.x}, ${label.y})`);
                     return true; // Collision detected
                 }
             }
@@ -681,11 +688,13 @@
                 const testLng = lng + (pos.offset[0] * 0.0004);
 
                 if (!checkLabelCollision(testLat, testLng)) {
+                    const pixelPos = map.latLngToContainerPoint([testLat, testLng]);
                     placeLabels.push({
-                        x: map.latLngToContainerPoint([testLat, testLng]).x,
-                        y: map.latLngToContainerPoint([testLat, testLng]).y,
+                        x: pixelPos.x,
+                        y: pixelPos.y,
                         name: name
                     });
+                    console.log(`Placed label "${name}" at position (${pixelPos.x}, ${pixelPos.y}) using ${pos.direction}`);
                     return { lat: testLat, lng: testLng, direction: pos.direction };
                 }
             }
@@ -847,6 +856,8 @@
                 })
                 .catch(error => console.error('Error loading populated places:', error));
 
+            console.log(`Label positioning complete. Total labels placed: ${placeLabels.length}`);
+
             // Load roads
             fetch('data/Roads.geojson')
                 .then(response => response.json())
@@ -992,6 +1003,9 @@
 
             // Apply initial filters
             applyFilters();
+
+            // Fit map to data extent initially
+            setTimeout(() => fitMapToDataExtent(), 1000);
         }
 
         function updateStatistics() {
@@ -1172,6 +1186,26 @@
             if (mapLayers.length > 0) {
                 const group = new L.featureGroup(mapLayers);
                 map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        // Function to fit map to all data extent
+        function fitMapToDataExtent() {
+            if (allData && allData.length > 0) {
+                // Calculate bounds from all data points
+                let minLat = Infinity, maxLat = -Infinity;
+                let minLng = Infinity, maxLng = -Infinity;
+
+                allData.forEach(point => {
+                    minLat = Math.min(minLat, point.latitude);
+                    maxLat = Math.max(maxLat, point.latitude);
+                    minLng = Math.min(minLng, point.longitude);
+                    maxLng = Math.max(maxLng, point.longitude);
+                });
+
+                // Add some padding and fit bounds
+                const bounds = [[minLat, minLng], [maxLat, maxLng]];
+                map.fitBounds(bounds, { padding: [20, 20] });
             }
         }
 
