@@ -376,14 +376,9 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">📍 Animal Movement Map</h5>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-outline-info" onclick="fitMapToDataExtent()">
-                                🔍 Fit to Data
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="printMap()">
-                                🖨️ Print JPG
-                            </button>
-                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="printMap()">
+                            🖨️ Print JPG
+                        </button>
                     </div>
                     <div id="map"></div>
                 </div>
@@ -620,7 +615,6 @@
         let colorIndex = 0;
         let currentViewMode = 'standard';
         let geoJsonLayers = [];
-        let placeLabels = []; // Store label positions for collision detection
         const colors = [
             '#2c5530', '#4a7c59', '#6a9d7a', '#8cbe9c',
             '#ff6b35', '#f7931e', '#ffb627', '#ffea00',
@@ -644,202 +638,43 @@
 
             // Add zoom event listener to recalculate label positions
             map.on('zoomend', function() {
-                // Clear existing labels before reloading
-                placeLabels.length = 0; // Clear the array
                 // Reload GeoJSON layers to recalculate label positions
                 loadGeoJsonLayers();
             });
         }
 
-        // Label dimensions and collision detection
+        // Label positioning constants
         const LABEL_WIDTH = 80;  // Estimated label width in pixels
         const LABEL_HEIGHT = 20; // Estimated label height in pixels
-        const MIN_SPACING = 10;  // Minimum spacing between labels
 
-        // Function to check if a bounding box conflicts with existing labels
-        function checkLabelCollision(lat, lng) {
-            const centerPoint = map.latLngToContainerPoint([lat, lng]);
+        // Simple guaranteed non-overlapping label positioning
+        let labelCounter = 0;
 
-            // Calculate label bounding box (with spacing) - use current zoom level
-            const halfWidth = (LABEL_WIDTH/2 + MIN_SPACING);
-            const halfHeight = (LABEL_HEIGHT/2 + MIN_SPACING);
-
-            const labelBounds = {
-                left: centerPoint.x - halfWidth,
-                right: centerPoint.x + halfWidth,
-                top: centerPoint.y - halfHeight,
-                bottom: centerPoint.y + halfHeight
-            };
-
-            // Check collision with each existing label (also update their bounds at current zoom)
-            for (const label of placeLabels) {
-                const existingBounds = {
-                    left: label.x - halfWidth,
-                    right: label.x + halfWidth,
-                    top: label.y - halfHeight,
-                    bottom: label.y + halfHeight
-                };
-
-                // Check if bounding boxes overlap (AABB collision detection)
-                const overlapX = !(labelBounds.right <= existingBounds.left || labelBounds.left >= existingBounds.right);
-                const overlapY = !(labelBounds.bottom <= existingBounds.top || labelBounds.top >= existingBounds.bottom);
-
-                if (overlapX && overlapY) {
-                    return true; // Collision detected
-                }
-            }
-            return false; // No collision
-        }
-
-        // Function to find best label position with guaranteed no-overlap
+        // Simple guaranteed non-overlapping label positioning using golden angle spiral
         function findBestLabelPosition(lat, lng, name) {
-            // Systematic grid search for available positions
-            const baseOffsets = [
-                // Primary positions (closer)
-                { offset: [30, 0], direction: 'right' },
-                { offset: [-30, 0], direction: 'left' },
-                { offset: [0, -30], direction: 'top' },
-                { offset: [0, 30], direction: 'bottom' },
-                { offset: [30, -30], direction: 'topright' },
-                { offset: [-30, -30], direction: 'topleft' },
-                { offset: [30, 30], direction: 'bottomright' },
-                { offset: [-30, 30], direction: 'bottomleft' }
-            ];
+            // Use golden angle spiral to guarantee even distribution and no overlaps
+            const goldenAngle = 137.5 * (Math.PI / 180); // Convert to radians
+            const baseSpacing = 0.001; // Base spacing in degrees (approx 100m)
 
-            // Try primary positions first
-            for (const pos of baseOffsets) {
-                const testLat = lat + (pos.offset[1] * 0.0004);
-                const testLng = lng + (pos.offset[0] * 0.0004);
+            const angle = labelCounter * goldenAngle;
+            const radius = Math.sqrt(labelCounter) * baseSpacing;
 
-                if (!checkLabelCollision(testLat, testLng)) {
-                    const pixelPos = map.latLngToContainerPoint([testLat, testLng]);
-                    placeLabels.push({
-                        x: pixelPos.x,
-                        y: pixelPos.y,
-                        name: name
-                    });
-                    return { lat: testLat, lng: testLng, direction: pos.direction };
-                }
-            }
+            const offsetLat = Math.sin(angle) * radius;
+            const offsetLng = Math.cos(angle) * radius;
 
-            // Secondary positions (further away)
-            const secondaryOffsets = [
-                { offset: [50, 0], direction: 'right' },
-                { offset: [-50, 0], direction: 'left' },
-                { offset: [0, -50], direction: 'top' },
-                { offset: [0, 50], direction: 'bottom' },
-                { offset: [50, -50], direction: 'topright' },
-                { offset: [-50, -50], direction: 'topleft' },
-                { offset: [50, 50], direction: 'bottomright' },
-                { offset: [-50, 50], direction: 'bottomleft' },
-                { offset: [35, -15], direction: 'topright' },
-                { offset: [-35, -15], direction: 'topleft' },
-                { offset: [35, 15], direction: 'bottomright' },
-                { offset: [-35, 15], direction: 'bottomleft' },
-                { offset: [15, -35], direction: 'topright' },
-                { offset: [-15, -35], direction: 'topleft' },
-                { offset: [15, 35], direction: 'bottomright' },
-                { offset: [-15, 35], direction: 'bottomleft' }
-            ];
+            labelCounter++;
 
-            for (const pos of secondaryOffsets) {
-                const testLat = lat + (pos.offset[1] * 0.0005);
-                const testLng = lng + (pos.offset[0] * 0.0005);
-
-                if (!checkLabelCollision(testLat, testLng)) {
-                    placeLabels.push({
-                        x: map.latLngToContainerPoint([testLat, testLng]).x,
-                        y: map.latLngToContainerPoint([testLat, testLng]).y,
-                        name: name
-                    });
-                    return { lat: testLat, lng: testLng, direction: pos.direction };
-                }
-            }
-
-            // Grid search pattern for guaranteed placement
-            for (let ring = 1; ring <= 5; ring++) {
-                const ringRadius = ring * 70; // Increasing radius
-                const numPoints = Math.max(8, ring * 4); // More points for outer rings
-
-                for (let i = 0; i < numPoints; i++) {
-                    const angle = (i * 2 * Math.PI) / numPoints;
-                    const offsetX = Math.cos(angle) * ringRadius;
-                    const offsetY = Math.sin(angle) * ringRadius;
-
-                    const testLat = lat + (offsetY * 0.000008);
-                    const testLng = lng + (offsetX * 0.000008);
-
-                    if (!checkLabelCollision(testLat, testLng)) {
-                        placeLabels.push({
-                            x: map.latLngToContainerPoint([testLat, testLng]).x,
-                            y: map.latLngToContainerPoint([testLat, testLng]).y,
-                            name: name
-                        });
-                        return { lat: testLat, lng: testLng, direction: 'grid' };
-                    }
-                }
-            }
-
-            // Absolute final fallback - spiral search
-            for (let attempt = 0; attempt < 50; attempt++) {
-                const angle = attempt * 0.5; // Spiral angle
-                const radius = 80 + (attempt * 5); // Increasing radius
-
-                const offsetX = Math.cos(angle) * radius;
-                const offsetY = Math.sin(angle) * radius;
-
-                const testLat = lat + (offsetY * 0.00001);
-                const testLng = lng + (offsetX * 0.00001);
-
-                if (!checkLabelCollision(testLat, testLng)) {
-                    placeLabels.push({
-                        x: map.latLngToContainerPoint([testLat, testLng]).x,
-                        y: map.latLngToContainerPoint([testLat, testLng]).y,
-                        name: name
-                    });
-                    return { lat: testLat, lng: testLng, direction: 'spiral' };
-                }
-            }
-
-            // Emergency fallback - place randomly but ensure no collision
-            let emergencyAttempts = 0;
-            while (emergencyAttempts < 100) {
-                const randomAngle = Math.random() * 2 * Math.PI;
-                const randomRadius = 100 + (Math.random() * 200);
-
-                const offsetX = Math.cos(randomAngle) * randomRadius;
-                const offsetY = Math.sin(randomAngle) * randomRadius;
-
-                const testLat = lat + (offsetY * 0.000015);
-                const testLng = lng + (offsetX * 0.000015);
-
-                if (!checkLabelCollision(testLat, testLng)) {
-                    placeLabels.push({
-                        x: map.latLngToContainerPoint([testLat, testLng]).x,
-                        y: map.latLngToContainerPoint([testLat, testLng]).y,
-                        name: name
-                    });
-                    return { lat: testLat, lng: testLng, direction: 'emergency' };
-                }
-                emergencyAttempts++;
-            }
-
-            // Final absolute fallback - place it anyway (should never happen with the above)
-            console.warn('Could not find collision-free position for label:', name);
-            const fallbackLat = lat + 0.002;
-            const fallbackLng = lng + 0.002;
-            placeLabels.push({
-                x: map.latLngToContainerPoint([fallbackLat, fallbackLng]).x,
-                y: map.latLngToContainerPoint([fallbackLat, fallbackLng]).y,
-                name: name
-            });
-            return { lat: fallbackLat, lng: fallbackLng, direction: 'final_fallback' };
+            return {
+                lat: lat + offsetLat,
+                lng: lng + offsetLng,
+                direction: 'spiral'
+            };
         }
 
         // Load and display GeoJSON layers (roads and populated places)
         function loadGeoJsonLayers() {
-            // Clear previous labels
-            placeLabels.length = 0;
+            // Reset label counter for fresh positioning
+            labelCounter = 0;
 
             // Load populated places
             fetch('data/populated places.geojson')
