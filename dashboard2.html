@@ -250,26 +250,6 @@
             box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
         }
 
-        /* New label marker styling */
-        .place-label-marker {
-            background: none !important;
-            border: none !important;
-        }
-
-        .place-label-text {
-            background-color: rgba(255, 255, 255, 0.95);
-            border: 1px solid #333;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: bold;
-            color: #333;
-            padding: 3px 6px;
-            white-space: nowrap;
-            box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
-            text-align: center;
-            pointer-events: none;
-            user-select: none;
-        }
 
         /* Legend styling - horizontal layout */
         #tagLegend {
@@ -636,92 +616,31 @@
             // Load GeoJSON layers
             loadGeoJsonLayers();
 
-            // Add zoom event listener to recalculate label positions
-            map.on('zoomend', function() {
-                // Reload GeoJSON layers to recalculate label positions
-                loadGeoJsonLayers();
-            });
         }
 
         // Label positioning constants
         const LABEL_WIDTH = 80;  // Estimated label width in pixels
         const LABEL_HEIGHT = 20; // Estimated label height in pixels
 
-        // Track label positions for collision detection
-        let placedLabels = [];
-
-        // Find best label position to avoid overlaps
-        function findBestLabelPosition(lat, lng, name) {
-            // Try positions around the point in order of preference
-            const offsets = [
-                { lat: 0, lng: 0.003, dir: 'right' },     // Right
-                { lat: 0, lng: -0.003, dir: 'left' },     // Left
-                { lat: -0.003, lng: 0, dir: 'top' },      // Top
-                { lat: 0.003, lng: 0, dir: 'bottom' },    // Bottom
-                { lat: -0.003, lng: 0.003, dir: 'topright' },
-                { lat: -0.003, lng: -0.003, dir: 'topleft' },
-                { lat: 0.003, lng: 0.003, dir: 'bottomright' },
-                { lat: 0.003, lng: -0.003, dir: 'bottomleft' }
-            ];
-
-            // Check each position for collision
-            for (const offset of offsets) {
-                const testLat = lat + offset.lat;
-                const testLng = lng + offset.lng;
-                
-                // Check if this position is far enough from existing labels
-                let collision = false;
-                for (const placed of placedLabels) {
-                    const distance = Math.sqrt(
-                        Math.pow(testLat - placed.lat, 2) + 
-                        Math.pow(testLng - placed.lng, 2)
-                    );
-                    
-                    // Minimum distance of 0.004 degrees (roughly 400m)
-                    if (distance < 0.004) {
-                        collision = true;
-                        break;
-                    }
-                }
-                
-                if (!collision) {
-                    // Store this position
-                    placedLabels.push({ lat: testLat, lng: testLng, name: name });
-                    return {
-                        lat: testLat,
-                        lng: testLng,
-                        direction: offset.dir
-                    };
-                }
-            }
-
-            // If all positions collide, place it further away
-            const fallbackLat = lat + 0.005;
-            const fallbackLng = lng + 0.005;
-            placedLabels.push({ lat: fallbackLat, lng: fallbackLng, name: name });
-            
-            return {
-                lat: fallbackLat,
-                lng: fallbackLng,
-                direction: 'right'
-            };
-        }
+        // Simple approach: just use tooltips with smart positioning
+        let labelPositions = [];
 
         // Load and display GeoJSON layers (roads and populated places)
         function loadGeoJsonLayers() {
-            // Reset placed labels for fresh positioning
-            placedLabels = [];
+            // Clear existing GeoJSON layers
+            geoJsonLayers.forEach(layer => {
+                if (map.hasLayer(layer)) {
+                    map.removeLayer(layer);
+                }
+            });
+            geoJsonLayers = [];
+            labelPositions = [];
 
             // Load populated places
             fetch('data/populated places.geojson')
                 .then(response => response.json())
                 .then(data => {
                     const populatedPlacesLayer = L.geoJSON(data, {
-                        style: {
-                            color: 'black',
-                            weight: 1,
-                            opacity: 1
-                        },
                         pointToLayer: function(feature, latlng) {
                             const marker = L.circleMarker(latlng, {
                                 color: 'black',
@@ -730,23 +649,15 @@
                                 radius: 3
                             });
 
-                            // Add label if name exists
+                            // Add label with tooltip
                             const name = feature.properties.name || feature.properties.name_en;
                             if (name) {
-                                const bestPosition = findBestLabelPosition(latlng.lat, latlng.lng, name);
-
-                                // Create a text marker at the calculated position
-                                const labelMarker = L.marker([bestPosition.lat, bestPosition.lng], {
-                                    icon: L.divIcon({
-                                        className: 'place-label-marker',
-                                        html: `<div class="place-label-text">${name}</div>`,
-                                        iconSize: [LABEL_WIDTH, LABEL_HEIGHT],
-                                        iconAnchor: [LABEL_WIDTH/2, LABEL_HEIGHT/2]
-                                    })
+                                marker.bindTooltip(name, {
+                                    permanent: true,
+                                    direction: 'right',
+                                    offset: [8, 0],
+                                    className: 'place-label'
                                 });
-
-                                labelMarker.addTo(map);
-                                geoJsonLayers.push(L.layerGroup([labelMarker]));
                             }
 
                             return marker;
