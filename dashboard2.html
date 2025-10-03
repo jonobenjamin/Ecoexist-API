@@ -647,34 +647,70 @@
         const LABEL_WIDTH = 80;  // Estimated label width in pixels
         const LABEL_HEIGHT = 20; // Estimated label height in pixels
 
-        // Simple guaranteed non-overlapping label positioning
-        let labelCounter = 0;
+        // Track label positions for collision detection
+        let placedLabels = [];
 
-        // Simple guaranteed non-overlapping label positioning using golden angle spiral
+        // Find best label position to avoid overlaps
         function findBestLabelPosition(lat, lng, name) {
-            // Use golden angle spiral to guarantee even distribution and no overlaps
-            const goldenAngle = 137.5 * (Math.PI / 180); // Convert to radians
-            const baseSpacing = 0.001; // Base spacing in degrees (approx 100m)
+            // Try positions around the point in order of preference
+            const offsets = [
+                { lat: 0, lng: 0.003, dir: 'right' },     // Right
+                { lat: 0, lng: -0.003, dir: 'left' },     // Left
+                { lat: -0.003, lng: 0, dir: 'top' },      // Top
+                { lat: 0.003, lng: 0, dir: 'bottom' },    // Bottom
+                { lat: -0.003, lng: 0.003, dir: 'topright' },
+                { lat: -0.003, lng: -0.003, dir: 'topleft' },
+                { lat: 0.003, lng: 0.003, dir: 'bottomright' },
+                { lat: 0.003, lng: -0.003, dir: 'bottomleft' }
+            ];
 
-            const angle = labelCounter * goldenAngle;
-            const radius = Math.sqrt(labelCounter) * baseSpacing;
+            // Check each position for collision
+            for (const offset of offsets) {
+                const testLat = lat + offset.lat;
+                const testLng = lng + offset.lng;
+                
+                // Check if this position is far enough from existing labels
+                let collision = false;
+                for (const placed of placedLabels) {
+                    const distance = Math.sqrt(
+                        Math.pow(testLat - placed.lat, 2) + 
+                        Math.pow(testLng - placed.lng, 2)
+                    );
+                    
+                    // Minimum distance of 0.004 degrees (roughly 400m)
+                    if (distance < 0.004) {
+                        collision = true;
+                        break;
+                    }
+                }
+                
+                if (!collision) {
+                    // Store this position
+                    placedLabels.push({ lat: testLat, lng: testLng, name: name });
+                    return {
+                        lat: testLat,
+                        lng: testLng,
+                        direction: offset.dir
+                    };
+                }
+            }
 
-            const offsetLat = Math.sin(angle) * radius;
-            const offsetLng = Math.cos(angle) * radius;
-
-            labelCounter++;
-
+            // If all positions collide, place it further away
+            const fallbackLat = lat + 0.005;
+            const fallbackLng = lng + 0.005;
+            placedLabels.push({ lat: fallbackLat, lng: fallbackLng, name: name });
+            
             return {
-                lat: lat + offsetLat,
-                lng: lng + offsetLng,
-                direction: 'spiral'
+                lat: fallbackLat,
+                lng: fallbackLng,
+                direction: 'right'
             };
         }
 
         // Load and display GeoJSON layers (roads and populated places)
         function loadGeoJsonLayers() {
-            // Reset label counter for fresh positioning
-            labelCounter = 0;
+            // Reset placed labels for fresh positioning
+            placedLabels = [];
 
             // Load populated places
             fetch('data/populated places.geojson')
@@ -1067,9 +1103,9 @@
                     maxLng = Math.max(maxLng, point.longitude);
                 });
 
-                // Add some padding and fit bounds
+                // Add some padding and fit bounds - zoom in closer
                 const bounds = [[minLat, minLng], [maxLat, maxLng]];
-                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+                map.fitBounds(bounds, { padding: [30, 30] });
             }
         }
 
