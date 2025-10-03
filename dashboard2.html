@@ -250,16 +250,16 @@
             box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
         }
 
-        /* Horizontal legend styling */
+        /* Legend styling */
         #tagLegend .tag-legend {
+            margin: 8px 0;
+            padding: 6px 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
             display: flex;
             align-items: center;
             gap: 5px;
-            margin: 5px 10px;
-            padding: 8px 12px;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-            border: 1px solid #dee2e6;
         }
 
         /* Print styles */
@@ -458,22 +458,19 @@
                     </div>
                 </div>
 
-            </div>
-        </div>
-
-        <!-- Legend -->
-        <div class="row mt-3">
-            <div class="col-12">
-                <div class="card">
+                <!-- Legend -->
+                <div class="card mt-3">
                     <div class="card-header">
                         <h6 class="mb-0">🗺️ Map Legend</h6>
                     </div>
                     <div class="card-body">
-                        <div id="tagLegend" class="d-flex flex-wrap justify-content-center gap-3"></div>
+                        <div id="tagLegend"></div>
                     </div>
                 </div>
+
             </div>
         </div>
+
 
         <!-- Data Download -->
         <div class="row mt-4">
@@ -508,6 +505,9 @@
 
     <!-- Turf.js for convex hull calculations -->
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+    <!-- html2canvas for map screenshot -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <script>
         // Authentication functions
@@ -581,6 +581,7 @@
         let colorIndex = 0;
         let currentViewMode = 'standard';
         let geoJsonLayers = [];
+        let placeLabels = []; // Store label positions for collision detection
         const colors = [
             '#2c5530', '#4a7c59', '#6a9d7a', '#8cbe9c',
             '#ff6b35', '#f7931e', '#ffb627', '#ffea00',
@@ -601,10 +602,69 @@
 
             // Load GeoJSON layers
             loadGeoJsonLayers();
+
+            // Add zoom event listener to recalculate label positions
+            map.on('zoomend', function() {
+                // Reload GeoJSON layers to recalculate label positions
+                loadGeoJsonLayers();
+            });
+        }
+
+        // Function to check if a position conflicts with existing labels
+        function checkLabelCollision(lat, lng, minDistance = 50) {
+            const point = map.latLngToContainerPoint([lat, lng]);
+            for (const label of placeLabels) {
+                const distance = Math.sqrt(
+                    Math.pow(point.x - label.x, 2) + Math.pow(point.y - label.y, 2)
+                );
+                if (distance < minDistance) {
+                    return true; // Collision detected
+                }
+            }
+            return false; // No collision
+        }
+
+        // Function to find best label position
+        function findBestLabelPosition(lat, lng, name) {
+            const positions = [
+                { offset: [10, 0], direction: 'right' },   // Right
+                { offset: [-10, 0], direction: 'left' },   // Left
+                { offset: [0, -10], direction: 'top' },    // Top
+                { offset: [0, 10], direction: 'bottom' },  // Bottom
+                { offset: [10, -10], direction: 'topright' }, // Top-right
+                { offset: [-10, -10], direction: 'topleft' }, // Top-left
+                { offset: [10, 10], direction: 'bottomright' }, // Bottom-right
+                { offset: [-10, 10], direction: 'bottomleft' }  // Bottom-left
+            ];
+
+            for (const pos of positions) {
+                const testLat = lat + (pos.offset[1] * 0.0001); // Small offset in degrees
+                const testLng = lng + (pos.offset[0] * 0.0001);
+
+                if (!checkLabelCollision(testLat, testLng)) {
+                    placeLabels.push({
+                        x: map.latLngToContainerPoint([testLat, testLng]).x,
+                        y: map.latLngToContainerPoint([testLat, testLng]).y,
+                        name: name
+                    });
+                    return { lat: testLat, lng: testLng, direction: pos.direction };
+                }
+            }
+
+            // If all positions conflict, place it anyway (fallback)
+            placeLabels.push({
+                x: map.latLngToContainerPoint([lat, lng]).x,
+                y: map.latLngToContainerPoint([lat, lng]).y,
+                name: name
+            });
+            return { lat: lat + 0.0001, lng: lng + 0.0001, direction: 'right' };
         }
 
         // Load and display GeoJSON layers (roads and populated places)
         function loadGeoJsonLayers() {
+            // Clear previous labels
+            placeLabels = [];
+
             // Load populated places
             fetch('data/populated places.geojson')
                 .then(response => response.json())
@@ -626,9 +686,10 @@
                             // Add label if name exists
                             const name = feature.properties.name || feature.properties.name_en;
                             if (name) {
+                                const bestPosition = findBestLabelPosition(latlng.lat, latlng.lng, name);
                                 marker.bindTooltip(name, {
                                     permanent: true,
-                                    direction: 'right',
+                                    direction: bestPosition.direction,
                                     offset: [5, 0],
                                     className: 'place-label'
                                 }).openTooltip();
@@ -646,7 +707,7 @@
             fetch('data/Roads.geojson')
                 .then(response => response.json())
                 .then(data => {
-                    // Convert EPSG:3857 coordinates to EPSG:4326 (WGS84)
+                    // Convert coordinates from EPSG:3857 to EPSG:4326
                     const convertedData = {
                         type: "FeatureCollection",
                         features: data.features.map(feature => ({
@@ -655,15 +716,14 @@
                                 ...feature.geometry,
                                 coordinates: feature.geometry.coordinates.map(lineString =>
                                     lineString.map(coord =>
-                                        // Convert EPSG:3857 to EPSG:4326
                                         coord.map(point => {
-                                            // If it's a MultiLineString, point is [x, y], convert to [lng, lat]
                                             if (Array.isArray(point) && point.length === 2) {
                                                 const [x, y] = point;
-                                                // Convert meters to degrees
-                                                const lng = (x / 20037508.34) * 180;
-                                                const lat = (Math.PI / 2 - 2 * Math.atan(Math.exp(-y / 20037508.34))) * 180 / Math.PI;
-                                                return [lng, lat];
+                                                // Convert Web Mercator to WGS84
+                                                const lng = x * 180 / 20037508.34;
+                                                const lat_rad = Math.PI / 2 - 2 * Math.atan(Math.exp(-y / 20037508.34));
+                                                const lat = lat_rad * 180 / Math.PI;
+                                                return [lng, lat]; // GeoJSON expects [lng, lat]
                                             }
                                             return point;
                                         })
@@ -680,6 +740,7 @@
                             opacity: 1
                         }
                     });
+
                     roadsLayer.addTo(map);
                     geoJsonLayers.push(roadsLayer);
                 })
@@ -1311,9 +1372,55 @@
         }
 
         function printMap() {
-            // Simple approach: just trigger browser print
-            // User can then choose "Save as PDF" in the print dialog
-            window.print();
+            // Capture map and legend as JPG
+            const mapElement = document.getElementById('map');
+            const legendElement = document.getElementById('tagLegend');
+
+            // Create a container for both map and legend
+            const captureContainer = document.createElement('div');
+            captureContainer.style.position = 'absolute';
+            captureContainer.style.left = '-9999px';
+            captureContainer.style.top = '-9999px';
+            captureContainer.style.width = '1200px';
+            captureContainer.style.backgroundColor = 'white';
+            captureContainer.style.padding = '20px';
+
+            // Clone map
+            const mapClone = mapElement.cloneNode(true);
+            mapClone.style.width = '1000px';
+            mapClone.style.height = '600px';
+            mapClone.style.border = '2px solid #333';
+
+            // Clone legend
+            const legendClone = legendElement.cloneNode(true);
+            legendClone.style.width = '100%';
+            legendClone.style.marginTop = '20px';
+
+            captureContainer.appendChild(mapClone);
+            captureContainer.appendChild(legendClone);
+            document.body.appendChild(captureContainer);
+
+            // Use html2canvas to capture the container
+            html2canvas(captureContainer, {
+                width: 1200,
+                height: 800,
+                scale: 1,
+                useCORS: true,
+                allowTaint: false
+            }).then(canvas => {
+                // Convert to JPG and download
+                const link = document.createElement('a');
+                link.download = `awt-map-${new Date().toISOString().split('T')[0]}.jpg`;
+                link.href = canvas.toDataURL('image/jpeg', 0.95);
+                link.click();
+
+                // Clean up
+                document.body.removeChild(captureContainer);
+            }).catch(error => {
+                console.error('Error capturing map:', error);
+                alert('Error creating map image. Please try again.');
+                document.body.removeChild(captureContainer);
+            });
         }
 
         // Initialize when page loads
