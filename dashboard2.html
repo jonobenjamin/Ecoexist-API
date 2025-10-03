@@ -49,18 +49,6 @@
             position: relative;
         }
 
-        /* White overlay for satellite imagery */
-        #map::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(255, 255, 255, 0.4);
-            pointer-events: none;
-            z-index: 1000;
-        }
 
         .stats-card {
             background: linear-gradient(135deg, #ffffff, #f8f9fa);
@@ -247,6 +235,31 @@
         .btn-view-mode.active {
             background: linear-gradient(135deg, #1a4a2e, #2c5530);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Place label styling */
+        .place-label {
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid #333;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #333;
+            padding: 2px 4px;
+            white-space: nowrap;
+            box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Horizontal legend styling */
+        #tagLegend .tag-legend {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin: 5px 10px;
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
         }
 
         /* Print styles */
@@ -445,13 +458,18 @@
                     </div>
                 </div>
 
-                <!-- Animal Tags Legend -->
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="row mt-3">
+            <div class="col-12">
                 <div class="card">
                     <div class="card-header">
-                        <h6 class="mb-0">🐾 Animal Tags</h6>
+                        <h6 class="mb-0">🗺️ Map Legend</h6>
                     </div>
                     <div class="card-body">
-                        <div id="tagLegend"></div>
+                        <div id="tagLegend" class="d-flex flex-wrap justify-content-center gap-3"></div>
                     </div>
                 </div>
             </div>
@@ -576,10 +594,10 @@
             // Satellite imagery background
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                 attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-                maxZoom: 18
+                maxZoom: 18,
+                opacity: 0.6  // Apply white overlay directly to satellite layer
             }).addTo(map);
 
-            // Soft white overlay for better text readability (added via CSS)
 
             // Load GeoJSON layers
             loadGeoJsonLayers();
@@ -598,12 +616,25 @@
                             opacity: 1
                         },
                         pointToLayer: function(feature, latlng) {
-                            return L.circleMarker(latlng, {
+                            const marker = L.circleMarker(latlng, {
                                 color: 'black',
                                 fillColor: 'black',
                                 fillOpacity: 0.7,
                                 radius: 3
                             });
+
+                            // Add label if name exists
+                            const name = feature.properties.name || feature.properties.name_en;
+                            if (name) {
+                                marker.bindTooltip(name, {
+                                    permanent: true,
+                                    direction: 'right',
+                                    offset: [5, 0],
+                                    className: 'place-label'
+                                }).openTooltip();
+                            }
+
+                            return marker;
                         }
                     });
                     populatedPlacesLayer.addTo(map);
@@ -615,7 +646,34 @@
             fetch('data/Roads.geojson')
                 .then(response => response.json())
                 .then(data => {
-                    const roadsLayer = L.geoJSON(data, {
+                    // Convert EPSG:3857 coordinates to EPSG:4326 (WGS84)
+                    const convertedData = {
+                        type: "FeatureCollection",
+                        features: data.features.map(feature => ({
+                            ...feature,
+                            geometry: {
+                                ...feature.geometry,
+                                coordinates: feature.geometry.coordinates.map(lineString =>
+                                    lineString.map(coord =>
+                                        // Convert EPSG:3857 to EPSG:4326
+                                        coord.map(point => {
+                                            // If it's a MultiLineString, point is [x, y], convert to [lng, lat]
+                                            if (Array.isArray(point) && point.length === 2) {
+                                                const [x, y] = point;
+                                                // Convert meters to degrees
+                                                const lng = (x / 20037508.34) * 180;
+                                                const lat = (Math.PI / 2 - 2 * Math.atan(Math.exp(-y / 20037508.34))) * 180 / Math.PI;
+                                                return [lng, lat];
+                                            }
+                                            return point;
+                                        })
+                                    )
+                                )
+                            }
+                        }))
+                    };
+
+                    const roadsLayer = L.geoJSON(convertedData, {
                         style: {
                             color: 'black',
                             weight: 2,
@@ -1036,61 +1094,46 @@
             const dataByTag = {};
             filteredData.forEach(item => {
                 if (!dataByTag[item.tagId]) {
-                    dataByTag[item.tagId] = { day: [], night: [] };
+                    dataByTag[item.tagId] = [];
                 }
-                
-                const date = new Date(item.timestamp * 1000);
-                const hour = date.getHours();
-                
-                // Day: 6 AM - 6 PM, Night: 6 PM - 6 AM
-                if (hour >= 6 && hour < 18) {
-                    dataByTag[item.tagId].day.push(item);
-                } else {
-                    dataByTag[item.tagId].night.push(item);
-                }
+                dataByTag[item.tagId].push(item);
             });
 
-            // Draw night tracks (dark grey)
+            // For each tag, create polylines with time-based coloring
             Object.keys(dataByTag).forEach(tagId => {
-                const nightData = dataByTag[tagId].night.sort((a, b) => a.timestamp - b.timestamp);
+                const tagData = dataByTag[tagId].sort((a, b) => a.timestamp - b.timestamp);
 
-                if (nightData.length > 1) {
-                    const coordinates = nightData.map(item => [item.latitude, item.longitude]);
-                    const polyline = L.polyline(coordinates, {
-                        color: '#333333',
-                        weight: 3,
-                        opacity: 0.7
-                    });
+                if (tagData.length > 1) {
+                    // Create segments with individual colors based on time of day
+                    for (let i = 0; i < tagData.length - 1; i++) {
+                        const point1 = tagData[i];
+                        const point2 = tagData[i + 1];
 
-                    polyline.bindPopup(`
-                        <strong>Tag ${tagId} - Night (6PM-6AM)</strong><br>
-                        Points: ${coordinates.length}
-                    `);
+                        // Determine color based on the time of the second point
+                        const date = new Date(point2.timestamp * 1000);
+                        const hour = date.getHours();
+                        const color = (hour >= 6 && hour < 18) ? '#ffea00' : '#333333'; // Yellow for day, dark grey for night
 
-                    polyline.addTo(map);
-                    mapLayers.push(polyline);
-                }
-            });
+                        const coordinates = [
+                            [point1.latitude, point1.longitude],
+                            [point2.latitude, point2.longitude]
+                        ];
 
-            // Draw day tracks (yellow)
-            Object.keys(dataByTag).forEach(tagId => {
-                const dayData = dataByTag[tagId].day.sort((a, b) => a.timestamp - b.timestamp);
-                
-                if (dayData.length > 1) {
-                    const coordinates = dayData.map(item => [item.latitude, item.longitude]);
-                    const polyline = L.polyline(coordinates, {
-                        color: '#ffea00',
-                        weight: 3,
-                        opacity: 0.9
-                    });
+                        const polyline = L.polyline(coordinates, {
+                            color: color,
+                            weight: 3,
+                            opacity: 0.8
+                        });
 
-                    polyline.bindPopup(`
-                        <strong>Tag ${tagId} - Day (6AM-6PM)</strong><br>
-                        Points: ${coordinates.length}
-                    `);
+                        polyline.bindPopup(`
+                            <strong>Tag ${tagId}</strong><br>
+                            Time: ${date.toLocaleString()}<br>
+                            Period: ${(hour >= 6 && hour < 18) ? 'Day (6AM-6PM)' : 'Night (6PM-6AM)'}
+                        `);
 
-                    polyline.addTo(map);
-                    mapLayers.push(polyline);
+                        polyline.addTo(map);
+                        mapLayers.push(polyline);
+                    }
                 }
             });
         }
@@ -1157,13 +1200,13 @@
                 dataByTag[item.tagId].push(item);
             });
 
-            // Speed color mapping function (yellow to red gradient)
+            // Speed color mapping function (yellow to dark red gradient)
             function getSpeedColor(speed) {
                 // Normalize speed from 0-15 km/h to 0-1
                 const normalizedSpeed = Math.min(speed / 15, 1);
 
-                // Interpolate from yellow (255, 255, 0) to red (255, 0, 0)
-                const r = 255;
+                // Interpolate from yellow (255, 255, 0) to dark red (139, 0, 0)
+                const r = Math.round(255 - (255 - 139) * normalizedSpeed);
                 const g = Math.round(255 * (1 - normalizedSpeed));
                 const b = 0;
 
