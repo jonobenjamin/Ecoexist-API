@@ -250,9 +250,15 @@
             box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
         }
 
-        /* Legend styling */
+        /* Legend styling - horizontal layout */
+        #tagLegend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
         #tagLegend .tag-legend {
-            margin: 8px 0;
+            margin: 0;
             padding: 6px 8px;
             background-color: #f8f9fa;
             border-radius: 4px;
@@ -260,7 +266,7 @@
             display: flex;
             align-items: center;
             gap: 5px;
-            flex-wrap: wrap;
+            white-space: nowrap;
         }
 
         /* Print styles */
@@ -425,8 +431,20 @@
             </div>
         </div>
 
-        <!-- Filters and Legend Row -->
+        <!-- Legend and Filters Row -->
         <div class="row mt-3">
+            <div class="col-lg-6">
+                <!-- Legend -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">🗺️ Map Legend</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="tagLegend"></div>
+                    </div>
+                </div>
+            </div>
+
             <div class="col-lg-6">
                 <!-- Filters -->
                 <div class="card">
@@ -461,18 +479,6 @@
                         <button class="btn btn-custom w-100" onclick="applyFilters()">
                             Apply Filters
                         </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-lg-6">
-                <!-- Legend -->
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0">🗺️ Map Legend</h6>
-                    </div>
-                    <div class="card-body">
-                        <div id="tagLegend" class="d-flex flex-column gap-2"></div>
                     </div>
                 </div>
             </div>
@@ -618,7 +624,7 @@
         }
 
         // Function to check if a position conflicts with existing labels
-        function checkLabelCollision(lat, lng, minDistance = 80) {
+        function checkLabelCollision(lat, lng, minDistance = 120) {
             const point = map.latLngToContainerPoint([lat, lng]);
             for (const label of placeLabels) {
                 const distance = Math.sqrt(
@@ -631,48 +637,30 @@
             return false; // No collision
         }
 
-        // Function to find best label position with better collision avoidance
+        // Function to find best label position with comprehensive collision avoidance
         function findBestLabelPosition(lat, lng, name) {
-            // Try positions in order of preference, with larger offsets for better spacing
+            // Try positions in order of preference with very large offsets
             const positions = [
-                { offset: [15, 0], direction: 'right' },     // Right
-                { offset: [-15, 0], direction: 'left' },     // Left
-                { offset: [0, -15], direction: 'top' },      // Top
-                { offset: [0, 15], direction: 'bottom' },    // Bottom
-                { offset: [15, -15], direction: 'topright' }, // Top-right
-                { offset: [-15, -15], direction: 'topleft' }, // Top-left
-                { offset: [15, 15], direction: 'bottomright' }, // Bottom-right
-                { offset: [-15, 15], direction: 'bottomleft' }, // Bottom-left
-                { offset: [20, 0], direction: 'right' },     // Further right
-                { offset: [-20, 0], direction: 'left' },     // Further left
-                { offset: [0, -20], direction: 'top' },      // Further top
-                { offset: [0, 20], direction: 'bottom' }     // Further bottom
+                { offset: [25, 0], direction: 'right' },      // Right
+                { offset: [-25, 0], direction: 'left' },      // Left
+                { offset: [0, -25], direction: 'top' },       // Top
+                { offset: [0, 25], direction: 'bottom' },     // Bottom
+                { offset: [25, -25], direction: 'topright' }, // Top-right
+                { offset: [-25, -25], direction: 'topleft' }, // Top-left
+                { offset: [25, 25], direction: 'bottomright' }, // Bottom-right
+                { offset: [-25, 25], direction: 'bottomleft' }, // Bottom-left
+                { offset: [35, 0], direction: 'right' },      // Much further right
+                { offset: [-35, 0], direction: 'left' },      // Much further left
+                { offset: [0, -35], direction: 'top' },       // Much further top
+                { offset: [0, 35], direction: 'bottom' },     // Much further bottom
+                { offset: [35, -35], direction: 'topright' }, // Diagonal
+                { offset: [-35, -35], direction: 'topleft' }, // Diagonal
+                { offset: [35, 35], direction: 'bottomright' }, // Diagonal
+                { offset: [-35, 35], direction: 'bottomleft' }  // Diagonal
             ];
 
             for (const pos of positions) {
-                const testLat = lat + (pos.offset[1] * 0.0002); // Larger offset in degrees
-                const testLng = lng + (pos.offset[0] * 0.0002);
-
-                if (!checkLabelCollision(testLat, testLng)) {
-                    placeLabels.push({
-                        x: map.latLngToContainerPoint([testLat, testLng]).x,
-                        y: map.latLngToContainerPoint([testLat, testLng]).y,
-                        name: name
-                    });
-                    return { lat: testLat, lng: testLng, direction: pos.direction };
-                }
-            }
-
-            // If all positions conflict, try even larger offsets
-            const fallbackPositions = [
-                { offset: [25, 0], direction: 'right' },
-                { offset: [-25, 0], direction: 'left' },
-                { offset: [0, -25], direction: 'top' },
-                { offset: [0, 25], direction: 'bottom' }
-            ];
-
-            for (const pos of fallbackPositions) {
-                const testLat = lat + (pos.offset[1] * 0.0003);
+                const testLat = lat + (pos.offset[1] * 0.0003); // Even larger offset
                 const testLng = lng + (pos.offset[0] * 0.0003);
 
                 if (!checkLabelCollision(testLat, testLng)) {
@@ -685,15 +673,58 @@
                 }
             }
 
-            // Final fallback - place it anyway with a large offset
-            const fallbackLat = lat + 0.0005;
-            const fallbackLng = lng + 0.0005;
+            // Try extreme fallback positions
+            const extremePositions = [
+                { offset: [50, 0], direction: 'right' },
+                { offset: [-50, 0], direction: 'left' },
+                { offset: [0, -50], direction: 'top' },
+                { offset: [0, 50], direction: 'bottom' },
+                { offset: [50, -50], direction: 'topright' },
+                { offset: [-50, -50], direction: 'topleft' },
+                { offset: [50, 50], direction: 'bottomright' },
+                { offset: [-50, 50], direction: 'bottomleft' }
+            ];
+
+            for (const pos of extremePositions) {
+                const testLat = lat + (pos.offset[1] * 0.0004);
+                const testLng = lng + (pos.offset[0] * 0.0004);
+
+                if (!checkLabelCollision(testLat, testLng)) {
+                    placeLabels.push({
+                        x: map.latLngToContainerPoint([testLat, testLng]).x,
+                        y: map.latLngToContainerPoint([testLat, testLng]).y,
+                        name: name
+                    });
+                    return { lat: testLat, lng: testLng, direction: pos.direction };
+                }
+            }
+
+            // Absolute final fallback - find any available position by scanning
+            for (let attempt = 1; attempt <= 10; attempt++) {
+                const angle = (attempt * 36) * (Math.PI / 180); // Try every 36 degrees
+                const distance = 60 + (attempt * 10); // Increasing distance
+                const testLat = lat + (Math.sin(angle) * distance * 0.00001);
+                const testLng = lng + (Math.cos(angle) * distance * 0.00001);
+
+                if (!checkLabelCollision(testLat, testLng)) {
+                    placeLabels.push({
+                        x: map.latLngToContainerPoint([testLat, testLng]).x,
+                        y: map.latLngToContainerPoint([testLat, testLng]).y,
+                        name: name
+                    });
+                    return { lat: testLat, lng: testLng, direction: 'auto' };
+                }
+            }
+
+            // Ultimate fallback - place it anyway
+            const ultimateLat = lat + (Math.random() - 0.5) * 0.001;
+            const ultimateLng = lng + (Math.random() - 0.5) * 0.001;
             placeLabels.push({
-                x: map.latLngToContainerPoint([fallbackLat, fallbackLng]).x,
-                y: map.latLngToContainerPoint([fallbackLat, fallbackLng]).y,
+                x: map.latLngToContainerPoint([ultimateLat, ultimateLng]).x,
+                y: map.latLngToContainerPoint([ultimateLat, ultimateLng]).y,
                 name: name
             });
-            return { lat: fallbackLat, lng: fallbackLng, direction: 'right' };
+            return { lat: ultimateLat, lng: ultimateLng, direction: 'fallback' };
         }
 
         // Load and display GeoJSON layers (roads and populated places)
