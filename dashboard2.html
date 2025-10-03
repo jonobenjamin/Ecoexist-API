@@ -622,8 +622,53 @@
         const LABEL_WIDTH = 80;  // Estimated label width in pixels
         const LABEL_HEIGHT = 20; // Estimated label height in pixels
 
-        // Simple approach: just use tooltips with smart positioning
-        let labelPositions = [];
+        // Track used label positions to prevent overlaps
+        let usedLabelBounds = [];
+
+        // Check if a label position would overlap with existing labels
+        function checkLabelOverlap(bounds) {
+            for (let existing of usedLabelBounds) {
+                // Check bounding box overlap
+                if (!(bounds.right < existing.left || 
+                      bounds.left > existing.right || 
+                      bounds.bottom < existing.top || 
+                      bounds.top > existing.bottom)) {
+                    return true; // Overlap detected
+                }
+            }
+            return false;
+        }
+
+        // Find best tooltip direction to avoid overlaps
+        function findBestTooltipDirection(latlng, name) {
+            const point = map.latLngToContainerPoint(latlng);
+            const labelWidth = name.length * 7 + 20; // Estimate label width
+            const labelHeight = 24;
+            const offset = 8;
+
+            // Try different directions in order of preference
+            const directions = [
+                { dir: 'right', bounds: { left: point.x + offset, right: point.x + offset + labelWidth, top: point.y - labelHeight/2, bottom: point.y + labelHeight/2 } },
+                { dir: 'left', bounds: { left: point.x - offset - labelWidth, right: point.x - offset, top: point.y - labelHeight/2, bottom: point.y + labelHeight/2 } },
+                { dir: 'top', bounds: { left: point.x - labelWidth/2, right: point.x + labelWidth/2, top: point.y - offset - labelHeight, bottom: point.y - offset } },
+                { dir: 'bottom', bounds: { left: point.x - labelWidth/2, right: point.x + labelWidth/2, top: point.y + offset, bottom: point.y + offset + labelHeight } },
+                { dir: 'topright', bounds: { left: point.x + offset, right: point.x + offset + labelWidth, top: point.y - offset - labelHeight, bottom: point.y - offset } },
+                { dir: 'topleft', bounds: { left: point.x - offset - labelWidth, right: point.x - offset, top: point.y - offset - labelHeight, bottom: point.y - offset } },
+                { dir: 'bottomright', bounds: { left: point.x + offset, right: point.x + offset + labelWidth, top: point.y + offset, bottom: point.y + offset + labelHeight } },
+                { dir: 'bottomleft', bounds: { left: point.x - offset - labelWidth, right: point.x - offset, top: point.y + offset, bottom: point.y + offset + labelHeight } }
+            ];
+
+            for (let option of directions) {
+                if (!checkLabelOverlap(option.bounds)) {
+                    usedLabelBounds.push(option.bounds);
+                    return option.dir;
+                }
+            }
+
+            // If all fail, use right and mark it anyway
+            usedLabelBounds.push(directions[0].bounds);
+            return 'right';
+        }
 
         // Load and display GeoJSON layers (roads and populated places)
         function loadGeoJsonLayers() {
@@ -634,7 +679,7 @@
                 }
             });
             geoJsonLayers = [];
-            labelPositions = [];
+            usedLabelBounds = [];
 
             // Load populated places
             fetch('data/populated places.geojson')
@@ -649,13 +694,20 @@
                                 radius: 3
                             });
 
-                            // Add label with tooltip
+                            // Add label with smart positioning
                             const name = feature.properties.name || feature.properties.name_en;
                             if (name) {
+                                const direction = findBestTooltipDirection(latlng, name);
                                 marker.bindTooltip(name, {
                                     permanent: true,
-                                    direction: 'right',
-                                    offset: [8, 0],
+                                    direction: direction,
+                                    offset: direction === 'right' ? [8, 0] : 
+                                           direction === 'left' ? [-8, 0] :
+                                           direction === 'top' ? [0, -8] :
+                                           direction === 'bottom' ? [0, 8] :
+                                           direction === 'topright' ? [8, -8] :
+                                           direction === 'topleft' ? [-8, -8] :
+                                           direction === 'bottomright' ? [8, 8] : [-8, 8],
                                     className: 'place-label'
                                 });
                             }
@@ -993,10 +1045,10 @@
                 renderSpeedMapView();
             }
 
-            // Fit map to layers if any exist
+            // Fit map to layers if any exist - tight zoom on AWT data
             if (mapLayers.length > 0) {
                 const group = new L.featureGroup(mapLayers);
-                map.fitBounds(group.getBounds().pad(0.1));
+                map.fitBounds(group.getBounds().pad(0.02));
             }
         }
 
@@ -1014,9 +1066,9 @@
                     maxLng = Math.max(maxLng, point.longitude);
                 });
 
-                // Add some padding and fit bounds - zoom in closer
+                // Add minimal padding and fit bounds - tight zoom on data
                 const bounds = [[minLat, minLng], [maxLat, maxLng]];
-                map.fitBounds(bounds, { padding: [30, 30] });
+                map.fitBounds(bounds, { padding: [20, 20] });
             }
         }
 
