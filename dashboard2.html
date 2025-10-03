@@ -250,6 +250,27 @@
             box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
         }
 
+        /* New label marker styling */
+        .place-label-marker {
+            background: none !important;
+            border: none !important;
+        }
+
+        .place-label-text {
+            background-color: rgba(255, 255, 255, 0.95);
+            border: 1px solid #333;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #333;
+            padding: 3px 6px;
+            white-space: nowrap;
+            box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            pointer-events: none;
+            user-select: none;
+        }
+
         /* Legend styling - horizontal layout */
         #tagLegend {
             display: flex;
@@ -623,7 +644,8 @@
 
             // Add zoom event listener to recalculate label positions
             map.on('zoomend', function() {
-                console.log('Zoom event: clearing labels and recalculating positions');
+                // Clear existing labels before reloading
+                placeLabels.length = 0; // Clear the array
                 // Reload GeoJSON layers to recalculate label positions
                 loadGeoJsonLayers();
             });
@@ -638,29 +660,31 @@
         function checkLabelCollision(lat, lng) {
             const centerPoint = map.latLngToContainerPoint([lat, lng]);
 
-            // Calculate label bounding box (with spacing)
+            // Calculate label bounding box (with spacing) - use current zoom level
+            const halfWidth = (LABEL_WIDTH/2 + MIN_SPACING);
+            const halfHeight = (LABEL_HEIGHT/2 + MIN_SPACING);
+
             const labelBounds = {
-                left: centerPoint.x - (LABEL_WIDTH/2 + MIN_SPACING),
-                right: centerPoint.x + (LABEL_WIDTH/2 + MIN_SPACING),
-                top: centerPoint.y - (LABEL_HEIGHT/2 + MIN_SPACING),
-                bottom: centerPoint.y + (LABEL_HEIGHT/2 + MIN_SPACING)
+                left: centerPoint.x - halfWidth,
+                right: centerPoint.x + halfWidth,
+                top: centerPoint.y - halfHeight,
+                bottom: centerPoint.y + halfHeight
             };
 
-            // Check collision with each existing label
+            // Check collision with each existing label (also update their bounds at current zoom)
             for (const label of placeLabels) {
                 const existingBounds = {
-                    left: label.x - (LABEL_WIDTH/2 + MIN_SPACING),
-                    right: label.x + (LABEL_WIDTH/2 + MIN_SPACING),
-                    top: label.y - (LABEL_HEIGHT/2 + MIN_SPACING),
-                    bottom: label.y + (LABEL_HEIGHT/2 + MIN_SPACING)
+                    left: label.x - halfWidth,
+                    right: label.x + halfWidth,
+                    top: label.y - halfHeight,
+                    bottom: label.y + halfHeight
                 };
 
                 // Check if bounding boxes overlap (AABB collision detection)
-                const overlapX = !(labelBounds.right < existingBounds.left || labelBounds.left > existingBounds.right);
-                const overlapY = !(labelBounds.bottom < existingBounds.top || labelBounds.top > existingBounds.bottom);
+                const overlapX = !(labelBounds.right <= existingBounds.left || labelBounds.left >= existingBounds.right);
+                const overlapY = !(labelBounds.bottom <= existingBounds.top || labelBounds.top >= existingBounds.bottom);
 
                 if (overlapX && overlapY) {
-                    console.log(`Collision detected for label at (${centerPoint.x}, ${centerPoint.y}) with existing label at (${label.x}, ${label.y})`);
                     return true; // Collision detected
                 }
             }
@@ -694,7 +718,6 @@
                         y: pixelPos.y,
                         name: name
                     });
-                    console.log(`Placed label "${name}" at position (${pixelPos.x}, ${pixelPos.y}) using ${pos.direction}`);
                     return { lat: testLat, lng: testLng, direction: pos.direction };
                 }
             }
@@ -816,7 +839,7 @@
         // Load and display GeoJSON layers (roads and populated places)
         function loadGeoJsonLayers() {
             // Clear previous labels
-            placeLabels = [];
+            placeLabels.length = 0;
 
             // Load populated places
             fetch('data/populated places.geojson')
@@ -840,12 +863,19 @@
                             const name = feature.properties.name || feature.properties.name_en;
                             if (name) {
                                 const bestPosition = findBestLabelPosition(latlng.lat, latlng.lng, name);
-                                marker.bindTooltip(name, {
-                                    permanent: true,
-                                    direction: bestPosition.direction,
-                                    offset: [5, 0],
-                                    className: 'place-label'
-                                }).openTooltip();
+
+                                // Create a text marker at the calculated position
+                                const labelMarker = L.marker([bestPosition.lat, bestPosition.lng], {
+                                    icon: L.divIcon({
+                                        className: 'place-label-marker',
+                                        html: `<div class="place-label-text">${name}</div>`,
+                                        iconSize: [LABEL_WIDTH, LABEL_HEIGHT],
+                                        iconAnchor: [LABEL_WIDTH/2, LABEL_HEIGHT/2]
+                                    })
+                                });
+
+                                labelMarker.addTo(map);
+                                geoJsonLayers.push(L.layerGroup([labelMarker]));
                             }
 
                             return marker;
@@ -856,7 +886,6 @@
                 })
                 .catch(error => console.error('Error loading populated places:', error));
 
-            console.log(`Label positioning complete. Total labels placed: ${placeLabels.length}`);
 
             // Load roads
             fetch('data/Roads.geojson')
@@ -1005,7 +1034,7 @@
             applyFilters();
 
             // Fit map to data extent initially
-            setTimeout(() => fitMapToDataExtent(), 1000);
+            fitMapToDataExtent();
         }
 
         function updateStatistics() {
@@ -1205,7 +1234,7 @@
 
                 // Add some padding and fit bounds
                 const bounds = [[minLat, minLng], [maxLat, maxLng]];
-                map.fitBounds(bounds, { padding: [20, 20] });
+                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
             }
         }
 
