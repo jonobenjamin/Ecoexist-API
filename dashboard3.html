@@ -728,6 +728,9 @@
             fetch('data/populated places.geojson')
                 .then(response => response.json())
                 .then(data => {
+                    // Store the data globally for zoom-based filtering
+                    window.populatedPlacesData = data;
+                    
                     // Sort features by population/importance (cities first, then villages)
                     const sortedFeatures = data.features.sort((a, b) => {
                         const getPriority = (feature) => {
@@ -739,52 +742,104 @@
                         return getPriority(a) - getPriority(b);
                     });
 
-                    const populatedPlacesLayer = L.geoJSON({ ...data, features: sortedFeatures }, {
-                        pointToLayer: function(feature, latlng) {
-                            const marker = L.circleMarker(latlng, {
-                                color: 'black',
-                                fillColor: 'black',
-                                fillOpacity: 0.7,
-                                radius: 3
-                            });
+                    // Function to get current map scale
+                    function getMapScale() {
+                        const zoom = map.getZoom();
+                        const metersPerPixel = 40075016.686 * Math.abs(Math.cos(map.getCenter().lat * Math.PI / 180)) / Math.pow(2, zoom + 8);
+                        return Math.round(metersPerPixel * 96 / 0.0254);
+                    }
 
-                            // Always add label - smart positioning will handle overlaps
-                            const name = feature.properties.name || feature.properties.name_en;
-                            if (name) {
-                                const direction = findBestTooltipDirection(latlng, name);
-                                
-                                // Calculate dynamic offset based on label length to avoid overlaps
-                                const labelLength = name.length;
-                                const baseOffset = 10;
-                                const extraOffset = Math.min(labelLength * 0.5, 15);
-                                
-                                let offset;
-                                switch(direction) {
-                                    case 'right': offset = [baseOffset + extraOffset, 0]; break;
-                                    case 'left': offset = [-(baseOffset + extraOffset), 0]; break;
-                                    case 'top': offset = [0, -(baseOffset + extraOffset)]; break;
-                                    case 'bottom': offset = [0, baseOffset + extraOffset]; break;
-                                    case 'topright': offset = [baseOffset + extraOffset, -(baseOffset + extraOffset)]; break;
-                                    case 'topleft': offset = [-(baseOffset + extraOffset), -(baseOffset + extraOffset)]; break;
-                                    case 'bottomright': offset = [baseOffset + extraOffset, baseOffset + extraOffset]; break;
-                                    case 'bottomleft': offset = [-(baseOffset + extraOffset), baseOffset + extraOffset]; break;
-                                    default: offset = [baseOffset, 0];
-                                }
-                                
-                                marker.bindTooltip(name, {
-                                    permanent: true,
-                                    direction: direction,
-                                    offset: offset,
-                                    className: 'place-label'
-                                });
-                            }
-
-                            return marker;
+                    // Function to filter places based on scale
+                    function getVisiblePlaceTypes(scale) {
+                        if (scale > 4300000) {
+                            // Zoomed out: only cities
+                            return ['city'];
+                        } else if (scale > 2000000) {
+                            // Medium zoom: cities and towns
+                            return ['city', 'town'];
+                        } else if (scale > 1000000) {
+                            // Medium-close zoom: cities, towns, and villages
+                            return ['city', 'town', 'village'];
+                        } else {
+                            // Zoomed in: show everything
+                            return ['city', 'town', 'village', 'hamlet'];
                         }
-                    });
-                    populatedPlacesLayer.addTo(map);
-                    geoJsonLayers.push(populatedPlacesLayer);
-                    console.log(`Loaded ${sortedFeatures.length} places with labels`);
+                    }
+
+                    // Function to render places with current zoom level filtering
+                    function renderPlaces() {
+                        // Remove existing places layer
+                        geoJsonLayers.forEach((layer, index) => {
+                            if (layer.options && layer.options.layerType === 'places') {
+                                map.removeLayer(layer);
+                                geoJsonLayers.splice(index, 1);
+                            }
+                        });
+                        usedLabelBounds = [];
+
+                        const currentScale = getMapScale();
+                        const visibleTypes = getVisiblePlaceTypes(currentScale);
+                        
+                        // Filter features based on zoom level
+                        const filteredFeatures = sortedFeatures.filter(feature => {
+                            const placeType = feature.properties.place;
+                            return visibleTypes.includes(placeType);
+                        });
+
+                        const populatedPlacesLayer = L.geoJSON({ ...data, features: filteredFeatures }, {
+                            layerType: 'places', // Custom property to identify this layer
+                            pointToLayer: function(feature, latlng) {
+                                const marker = L.circleMarker(latlng, {
+                                    color: 'black',
+                                    fillColor: 'black',
+                                    fillOpacity: 0.7,
+                                    radius: 3
+                                });
+
+                                // Always add label - smart positioning will handle overlaps
+                                const name = feature.properties.name || feature.properties.name_en;
+                                if (name) {
+                                    const direction = findBestTooltipDirection(latlng, name);
+                                    
+                                    // Calculate dynamic offset based on label length to avoid overlaps
+                                    const labelLength = name.length;
+                                    const baseOffset = 10;
+                                    const extraOffset = Math.min(labelLength * 0.5, 15);
+                                    
+                                    let offset;
+                                    switch(direction) {
+                                        case 'right': offset = [baseOffset + extraOffset, 0]; break;
+                                        case 'left': offset = [-(baseOffset + extraOffset), 0]; break;
+                                        case 'top': offset = [0, -(baseOffset + extraOffset)]; break;
+                                        case 'bottom': offset = [0, baseOffset + extraOffset]; break;
+                                        case 'topright': offset = [baseOffset + extraOffset, -(baseOffset + extraOffset)]; break;
+                                        case 'topleft': offset = [-(baseOffset + extraOffset), -(baseOffset + extraOffset)]; break;
+                                        case 'bottomright': offset = [baseOffset + extraOffset, baseOffset + extraOffset]; break;
+                                        case 'bottomleft': offset = [-(baseOffset + extraOffset), baseOffset + extraOffset]; break;
+                                        default: offset = [baseOffset, 0];
+                                    }
+                                    
+                                    marker.bindTooltip(name, {
+                                        permanent: true,
+                                        direction: direction,
+                                        offset: offset,
+                                        className: 'place-label'
+                                    });
+                                }
+
+                                return marker;
+                            }
+                        });
+                        populatedPlacesLayer.addTo(map);
+                        geoJsonLayers.push(populatedPlacesLayer);
+                        console.log(`Loaded ${filteredFeatures.length} places at scale 1:${currentScale.toLocaleString()}`);
+                    }
+
+                    // Initial render
+                    renderPlaces();
+
+                    // Re-render on zoom
+                    map.on('zoomend', renderPlaces);
                 })
                 .catch(error => console.error('Error loading populated places:', error));
 
