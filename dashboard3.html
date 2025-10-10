@@ -736,7 +736,6 @@
                         const getPriority = (feature) => {
                             if (feature.properties.place === 'city') return 1;
                             if (feature.properties.place === 'village') return 2;
-                            if (feature.properties.place === 'village') return 3;
                             return 4;
                         };
                         return getPriority(a) - getPriority(b);
@@ -756,10 +755,7 @@
                             return ['city'];
                         } else if (scale > 2000000) {
                             // Medium zoom: cities and towns
-                            return ['city', 'town'];
-                        } else if (scale > 1000000) {
-                            // Medium-close zoom: cities, towns, and villages
-                            return ['city', 'town', 'village'];
+                            return ['city', 'village'];
                         } else {
                             // Zoomed in: show everything
                             return ['city', 'town', 'village', 'hamlet'];
