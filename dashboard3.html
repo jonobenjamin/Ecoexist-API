@@ -612,6 +612,39 @@
                 opacity: 0.6  // Apply white overlay directly to satellite layer
             }).addTo(map);
 
+            // Add scale bar (shows both metric and imperial, plus scale ratio)
+            L.control.scale({
+                position: 'bottomleft',
+                metric: true,
+                imperial: false,
+                maxWidth: 200
+            }).addTo(map);
+
+            // Add custom scale ratio display (1:xxx)
+            const scaleRatioControl = L.control({ position: 'bottomleft' });
+            scaleRatioControl.onAdd = function(map) {
+                const div = L.DomUtil.create('div', 'scale-ratio-control');
+                div.style.background = 'rgba(255, 255, 255, 0.9)';
+                div.style.padding = '5px 8px';
+                div.style.margin = '0 0 5px 0';
+                div.style.border = '2px solid rgba(0,0,0,0.2)';
+                div.style.borderRadius = '4px';
+                div.style.fontSize = '12px';
+                div.style.fontWeight = 'bold';
+                div.style.lineHeight = '1.2';
+                div.innerHTML = 'Scale: 1:1,000,000';
+                
+                // Update scale ratio on zoom
+                map.on('zoomend', function() {
+                    const zoom = map.getZoom();
+                    const metersPerPixel = 40075016.686 * Math.abs(Math.cos(map.getCenter().lat * Math.PI / 180)) / Math.pow(2, zoom + 8);
+                    const scale = Math.round(metersPerPixel * 96 / 0.0254); // Convert to map scale
+                    div.innerHTML = 'Scale: 1:' + scale.toLocaleString();
+                });
+                
+                return div;
+            };
+            scaleRatioControl.addTo(map);
 
             // Load GeoJSON layers
             loadGeoJsonLayers();
