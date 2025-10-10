@@ -642,31 +642,41 @@
         // Find best tooltip direction to avoid overlaps
         function findBestTooltipDirection(latlng, name) {
             const point = map.latLngToContainerPoint(latlng);
-            const labelWidth = name.length * 7 + 20; // Estimate label width
-            const labelHeight = 24;
-            const offset = 8;
+            const labelWidth = name.length * 6 + 10; // Reduced padding for tighter packing
+            const labelHeight = 20;
+            const baseOffset = 10;
 
-            // Try different directions in order of preference
-            const directions = [
-                { dir: 'right', bounds: { left: point.x + offset, right: point.x + offset + labelWidth, top: point.y - labelHeight/2, bottom: point.y + labelHeight/2 } },
-                { dir: 'left', bounds: { left: point.x - offset - labelWidth, right: point.x - offset, top: point.y - labelHeight/2, bottom: point.y + labelHeight/2 } },
-                { dir: 'top', bounds: { left: point.x - labelWidth/2, right: point.x + labelWidth/2, top: point.y - offset - labelHeight, bottom: point.y - offset } },
-                { dir: 'bottom', bounds: { left: point.x - labelWidth/2, right: point.x + labelWidth/2, top: point.y + offset, bottom: point.y + offset + labelHeight } },
-                { dir: 'topright', bounds: { left: point.x + offset, right: point.x + offset + labelWidth, top: point.y - offset - labelHeight, bottom: point.y - offset } },
-                { dir: 'topleft', bounds: { left: point.x - offset - labelWidth, right: point.x - offset, top: point.y - offset - labelHeight, bottom: point.y - offset } },
-                { dir: 'bottomright', bounds: { left: point.x + offset, right: point.x + offset + labelWidth, top: point.y + offset, bottom: point.y + offset + labelHeight } },
-                { dir: 'bottomleft', bounds: { left: point.x - offset - labelWidth, right: point.x - offset, top: point.y + offset, bottom: point.y + offset + labelHeight } }
-            ];
+            // Try multiple offsets and directions to find best non-overlapping position
+            const offsets = [baseOffset, baseOffset + 10, baseOffset + 20, baseOffset + 30];
+            
+            for (let offset of offsets) {
+                const directions = [
+                    { dir: 'right', bounds: { left: point.x + offset, right: point.x + offset + labelWidth, top: point.y - labelHeight/2, bottom: point.y + labelHeight/2 } },
+                    { dir: 'left', bounds: { left: point.x - offset - labelWidth, right: point.x - offset, top: point.y - labelHeight/2, bottom: point.y + labelHeight/2 } },
+                    { dir: 'top', bounds: { left: point.x - labelWidth/2, right: point.x + labelWidth/2, top: point.y - offset - labelHeight, bottom: point.y - offset } },
+                    { dir: 'bottom', bounds: { left: point.x - labelWidth/2, right: point.x + labelWidth/2, top: point.y + offset, bottom: point.y + offset + labelHeight } },
+                    { dir: 'topright', bounds: { left: point.x + offset, right: point.x + offset + labelWidth, top: point.y - offset - labelHeight, bottom: point.y - offset } },
+                    { dir: 'topleft', bounds: { left: point.x - offset - labelWidth, right: point.x - offset, top: point.y - offset - labelHeight, bottom: point.y - offset } },
+                    { dir: 'bottomright', bounds: { left: point.x + offset, right: point.x + offset + labelWidth, top: point.y + offset, bottom: point.y + offset + labelHeight } },
+                    { dir: 'bottomleft', bounds: { left: point.x - offset - labelWidth, right: point.x - offset, top: point.y + offset, bottom: point.y + offset + labelHeight } }
+                ];
 
-            for (let option of directions) {
-                if (!checkLabelOverlap(option.bounds)) {
-                    usedLabelBounds.push(option.bounds);
-                    return option.dir;
+                for (let option of directions) {
+                    if (!checkLabelOverlap(option.bounds)) {
+                        usedLabelBounds.push(option.bounds);
+                        return option.dir;
+                    }
                 }
             }
 
-            // If all fail, use right and mark it anyway
-            usedLabelBounds.push(directions[0].bounds);
+            // If all fail, use right with maximum offset and mark it anyway
+            const fallbackBounds = { 
+                left: point.x + baseOffset + 40, 
+                right: point.x + baseOffset + 40 + labelWidth, 
+                top: point.y - labelHeight/2, 
+                bottom: point.y + labelHeight/2 
+            };
+            usedLabelBounds.push(fallbackBounds);
             return 'right';
         }
 
@@ -696,10 +706,6 @@
                         return getPriority(a) - getPriority(b);
                     });
 
-                    // Process places with minimum distance threshold
-                    const MIN_LABEL_DISTANCE = 50; // Minimum pixels between labels
-                    const placedLabels = [];
-                    
                     const populatedPlacesLayer = L.geoJSON({ ...data, features: sortedFeatures }, {
                         pointToLayer: function(feature, latlng) {
                             const marker = L.circleMarker(latlng, {
@@ -709,37 +715,35 @@
                                 radius: 3
                             });
 
-                            // Add label with smart positioning, skip if too close to existing label
+                            // Always add label - smart positioning will handle overlaps
                             const name = feature.properties.name || feature.properties.name_en;
                             if (name) {
-                                const point = map.latLngToContainerPoint(latlng);
+                                const direction = findBestTooltipDirection(latlng, name);
                                 
-                                // Check if too close to existing labels
-                                let tooClose = false;
-                                for (let placed of placedLabels) {
-                                    const dist = Math.sqrt(Math.pow(point.x - placed.x, 2) + Math.pow(point.y - placed.y, 2));
-                                    if (dist < MIN_LABEL_DISTANCE) {
-                                        tooClose = true;
-                                        break;
-                                    }
+                                // Calculate dynamic offset based on label length to avoid overlaps
+                                const labelLength = name.length;
+                                const baseOffset = 10;
+                                const extraOffset = Math.min(labelLength * 0.5, 15);
+                                
+                                let offset;
+                                switch(direction) {
+                                    case 'right': offset = [baseOffset + extraOffset, 0]; break;
+                                    case 'left': offset = [-(baseOffset + extraOffset), 0]; break;
+                                    case 'top': offset = [0, -(baseOffset + extraOffset)]; break;
+                                    case 'bottom': offset = [0, baseOffset + extraOffset]; break;
+                                    case 'topright': offset = [baseOffset + extraOffset, -(baseOffset + extraOffset)]; break;
+                                    case 'topleft': offset = [-(baseOffset + extraOffset), -(baseOffset + extraOffset)]; break;
+                                    case 'bottomright': offset = [baseOffset + extraOffset, baseOffset + extraOffset]; break;
+                                    case 'bottomleft': offset = [-(baseOffset + extraOffset), baseOffset + extraOffset]; break;
+                                    default: offset = [baseOffset, 0];
                                 }
                                 
-                                if (!tooClose) {
-                                    const direction = findBestTooltipDirection(latlng, name);
-                                    marker.bindTooltip(name, {
-                                        permanent: true,
-                                        direction: direction,
-                                        offset: direction === 'right' ? [8, 0] : 
-                                               direction === 'left' ? [-8, 0] :
-                                               direction === 'top' ? [0, -8] :
-                                               direction === 'bottom' ? [0, 8] :
-                                               direction === 'topright' ? [8, -8] :
-                                               direction === 'topleft' ? [-8, -8] :
-                                               direction === 'bottomright' ? [8, 8] : [-8, 8],
-                                        className: 'place-label'
-                                    });
-                                    placedLabels.push(point);
-                                }
+                                marker.bindTooltip(name, {
+                                    permanent: true,
+                                    direction: direction,
+                                    offset: offset,
+                                    className: 'place-label'
+                                });
                             }
 
                             return marker;
@@ -747,6 +751,7 @@
                     });
                     populatedPlacesLayer.addTo(map);
                     geoJsonLayers.push(populatedPlacesLayer);
+                    console.log(`Loaded ${sortedFeatures.length} places with labels`);
                 })
                 .catch(error => console.error('Error loading populated places:', error));
 
@@ -788,9 +793,9 @@
 
                     const roadsLayer = L.geoJSON(convertedData, {
                         style: {
-                            color: '#FF6600',
-                            weight: 3,
-                            opacity: 1
+                            color: '#000000',
+                            weight: 1.5,
+                            opacity: 0.7
                         }
                     });
 
