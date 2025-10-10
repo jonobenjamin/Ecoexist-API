@@ -353,7 +353,7 @@
         <div class="row">
             <!-- Main Map Column -->
             <div class="col-lg-8">
-                <div class="card">
+                <div class="card" id="map-container">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">📍 Animal Movement Map</h5>
                         <button class="btn btn-sm btn-outline-secondary" onclick="printMap()">
@@ -361,6 +361,12 @@
                         </button>
                     </div>
                     <div id="map"></div>
+                    
+                    <!-- Map Legend (inside map block for printing) -->
+                    <div class="card-footer bg-white">
+                        <h6 class="mb-2">🗺️ Map Legend</h6>
+                        <div id="tagLegend"></div>
+                    </div>
                 </div>
             </div>
 
@@ -429,25 +435,8 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Legend and Filters Row -->
-        <div class="row mt-3">
-            <div class="col-lg-6">
-                <!-- Legend -->
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0">🗺️ Map Legend</h6>
-                    </div>
-                    <div class="card-body">
-                        <div id="tagLegend"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-lg-6">
-                <!-- Filters -->
+                <!-- Filters (same width as View Mode) -->
                 <div class="card">
                     <div class="card-header">
                         <h6 class="mb-0">🔍 Filters</h6>
@@ -736,6 +725,7 @@
                         const getPriority = (feature) => {
                             if (feature.properties.place === 'city') return 1;
                             if (feature.properties.place === 'village') return 2;
+                            if (feature.properties.place === 'village') return 3;
                             return 4;
                         };
                         return getPriority(a) - getPriority(b);
@@ -755,7 +745,10 @@
                             return ['city'];
                         } else if (scale > 2000000) {
                             // Medium zoom: cities and towns
-                            return ['city', 'village'];
+                            return ['city', 'town'];
+                        } else if (scale > 1000000) {
+                            // Medium-close zoom: cities, towns, and villages
+                            return ['city', 'town', 'village'];
                         } else {
                             // Zoomed in: show everything
                             return ['city', 'town', 'village', 'hamlet'];
@@ -1538,47 +1531,24 @@
         }
 
         function printMap() {
-            // Capture only the map as JPG (without legend)
-            const mapElement = document.getElementById('map');
+            // Capture the entire map container including legend
+            const mapContainer = document.getElementById('map-container');
 
-            // Create a container for the map only
-            const captureContainer = document.createElement('div');
-            captureContainer.style.position = 'absolute';
-            captureContainer.style.left = '-9999px';
-            captureContainer.style.top = '-9999px';
-            captureContainer.style.width = '1000px';
-            captureContainer.style.height = '600px';
-            captureContainer.style.backgroundColor = 'white';
-            captureContainer.style.border = '2px solid #333';
-
-            // Clone map
-            const mapClone = mapElement.cloneNode(true);
-            mapClone.style.width = '100%';
-            mapClone.style.height = '100%';
-
-            captureContainer.appendChild(mapClone);
-            document.body.appendChild(captureContainer);
-
-            // Use html2canvas to capture the map only
-            html2canvas(captureContainer, {
-                width: 1000,
-                height: 600,
-                scale: 1,
+            // Use html2canvas to capture the entire map container with legend
+            html2canvas(mapContainer, {
+                scale: 2,
                 useCORS: true,
-                allowTaint: false
+                allowTaint: false,
+                logging: false
             }).then(canvas => {
                 // Convert to JPG and download
                 const link = document.createElement('a');
                 link.download = `awt-map-${new Date().toISOString().split('T')[0]}.jpg`;
                 link.href = canvas.toDataURL('image/jpeg', 0.95);
                 link.click();
-
-                // Clean up
-                document.body.removeChild(captureContainer);
             }).catch(error => {
                 console.error('Error capturing map:', error);
                 alert('Error creating map image. Please try again.');
-                document.body.removeChild(captureContainer);
             });
         }
 
