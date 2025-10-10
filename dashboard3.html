@@ -735,7 +735,7 @@
                     const sortedFeatures = data.features.sort((a, b) => {
                         const getPriority = (feature) => {
                             if (feature.properties.place === 'city') return 1;
-                            if (feature.properties.place === 'town') return 2;
+                            if (feature.properties.place === 'village') return 2;
                             if (feature.properties.place === 'village') return 3;
                             return 4;
                         };
