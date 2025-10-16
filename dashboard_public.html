@@ -125,8 +125,8 @@
 
         .tag-color {
             display: inline-block;
-            width: 12px;
-            height: 12px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             margin-right: 5px;
         }
@@ -281,7 +281,7 @@
                         <div id="map" style="flex: 1;"></div>
                         <!-- Map Legend (right side of map) -->
                         <div class="bg-white border-start" style="width: 100px; padding: 10px;">
-                            <h6 class="mb-2">Map Legend</h6>
+                            <h6 class="mb-2" style="font-size: 0.9em;">Map Legend</h6>
                             <div id="tagLegend"></div>
                         </div>
                     </div>
@@ -461,20 +461,11 @@
                 maxWidth: 200
             }).addTo(map);
 
-            // Add simple Esri attribution
-            var esriAttribution = L.control({position: 'bottomright'});
-            esriAttribution.onAdd = function(map) {
-                var div = L.DomUtil.create('div', 'esri-attribution');
-                div.innerHTML = '© Esri';
-                div.style.background = 'rgba(255, 255, 255, 0.8)';
-                div.style.padding = '2px 6px';
-                div.style.borderRadius = '3px';
-                div.style.fontSize = '10px';
-                div.style.fontFamily = 'Arial, sans-serif';
-                div.style.color = '#333';
-                return div;
-            };
-            esriAttribution.addTo(map);
+            // Add Esri attribution as part of Leaflet controls
+            L.control.attribution({
+                position: 'bottomright',
+                prefix: '© Esri'
+            }).addTo(map);
 
             // Add custom scale ratio display (1:xxx)
             const scaleRatioControl = L.control({ position: 'bottomleft' });
