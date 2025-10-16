@@ -251,7 +251,6 @@
                 <span class="navbar-text text-white me-3">
                     Privacy-Protected Animal Movement Data
                 </span>
-                <span class="badge bg-warning text-dark">Rolling 7-Day Averages</span>
             </div>
         </div>
     </nav>
@@ -262,7 +261,7 @@
             <div class="col-12">
                 <div class="privacy-notice">
                     <h6>🔒 Privacy Protection Notice</h6>
-                    <p>For wildlife conservation and privacy protection, this dashboard displays rolling 7-day average locations for each tracked animal. Individual GPS points are not shown to prevent poaching and protect animal privacy.</p>
+                    <p>For wildlife conservation and privacy protection, this dashboard only displays average locations for each tracked animal. Individual GPS points are not shown to prevent poaching and protect animal privacy.</p>
                 </div>
             </div>
         </div>
@@ -278,6 +277,34 @@
                         </button>
                     </div>
                     <div id="map"></div>
+
+                    <!-- Time Animation Slider (embedded in map) -->
+                    <div class="card-body border-top">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <label class="form-label mb-1">⏱️ Date Range: <span id="animationDateRange">Loading...</span></label>
+                                <div id="dateSliderContainer" style="padding: 10px 5px;">
+                                    <!-- noUiSlider will be inserted here -->
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-flex gap-1 align-items-center justify-content-end">
+                                    <button class="btn btn-sm btn-custom" id="playButton" onclick="toggleAnimation()">
+                                        ▶️
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="resetAnimation()">
+                                        ⏮️
+                                    </button>
+                                    <select class="form-select form-select-sm" id="animationSpeed" style="width: auto; font-size: 0.8em;">
+                                        <option value="2000">Slow</option>
+                                        <option value="1000" selected>Normal</option>
+                                        <option value="500">Fast</option>
+                                        <option value="200">Very Fast</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Map Legend (inside map block for printing) -->
                     <div class="card-footer bg-white">
@@ -373,42 +400,6 @@
             </div>
         </div>
 
-
-        <!-- Time Animation Slider -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0">⏱️ Time Animation</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Date Range: <span id="animationDateRange">Loading...</span></label>
-                            <div id="dateSliderContainer" style="padding: 20px 10px;">
-                                <!-- noUiSlider will be inserted here -->
-                            </div>
-                        </div>
-                        <div class="d-flex gap-2 align-items-center">
-                            <button class="btn btn-custom" id="playButton" onclick="toggleAnimation()">
-                                ▶️ Play
-                            </button>
-                            <button class="btn btn-outline-secondary" onclick="resetAnimation()">
-                                ⏮️ Reset
-                            </button>
-                            <div class="ms-3">
-                                <label class="form-label mb-0 me-2">Speed:</label>
-                                <select class="form-select form-select-sm d-inline-block" id="animationSpeed" style="width: auto;">
-                                    <option value="2000">Slow</option>
-                                    <option value="1000" selected>Normal</option>
-                                    <option value="500">Fast</option>
-                                    <option value="200">Very Fast</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Data Download -->
         <div class="row mt-4">
