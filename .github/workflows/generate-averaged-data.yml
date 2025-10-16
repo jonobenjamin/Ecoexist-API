@@ -2,11 +2,9 @@ name: Generate Privacy-Protected Averaged Data
 
 on:
   schedule:
-    # Run every 6 hours (4 times per day)
     - cron: '0 */6 * * *'
-  workflow_dispatch: # Allow manual triggering
+  workflow_dispatch:
   push:
-    # Also run when the averaging script is updated
     paths:
       - 'generate_averaged_data.js'
       - 'api/awt-data-public.js'
@@ -20,6 +18,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -50,21 +50,16 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-
-        # Check if there are changes to commit
-        if git diff --quiet data/awt_averaged_data.json; then
-          echo "No changes to averaged data"
+        git add data/awt_averaged_data.json
+        git status
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
         else
-          echo "Committing updated averaged data"
-          git add data/awt_averaged_data.json
-          git commit -m "Auto-update privacy-protected averaged wildlife data - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          git commit -m "Auto-update averaged data"
           git push
         fi
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Log completion
       run: |
-        echo "✅ Averaged data generation workflow completed"
-        echo "📊 Data file size: $(du -h data/awt_averaged_data.json | cut -f1)"
-        echo "📅 Last modified: $(date -r data/awt_averaged_data.json)"
+        echo "✅ Workflow completed"
+        echo "📊 File size: $(du -h data/awt_averaged_data.json | cut -f1)"
