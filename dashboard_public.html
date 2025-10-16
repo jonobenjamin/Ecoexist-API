@@ -310,7 +310,7 @@
 
                     <!-- Map Legend (inside map block for printing) -->
                     <div class="card-footer bg-white">
-                        <h6 class="mb-2">🗺️ Map Legend</h6>
+                        <h6 class="mb-2">Map Legend</h6>
                         <div id="tagLegend"></div>
                     </div>
                 </div>
@@ -320,7 +320,7 @@
             <div class="col-lg-4">
                 <!-- Statistics Cards -->
                 <div class="row">
-                    <div class="col-md-6 col-lg-12">
+                    <div class="col-md-6 col-lg-6">
                         <div class="card stats-card">
                             <div class="card-body">
                                 <h6 class="card-title text-muted">Total Animals</h6>
@@ -328,10 +328,10 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 col-lg-12">
+                    <div class="col-md-6 col-lg-6">
                         <div class="card stats-card">
                             <div class="card-body">
-                                <h6 class="card-title text-muted">Average Locations (7-Day)</h6>
+                                <h6 class="card-title text-muted">Number of Fixes</h6>
                                 <h3 class="text-primary mb-0" id="totalLocations">0</h3>
                             </div>
                         </div>
@@ -861,7 +861,7 @@
 
                 item.innerHTML = `
                     <span class="tag-color" style="background-color: ${tagColors[tagId]}"></span>
-                    Tag ${tagId}
+                    ${tagId}
                 `;
 
                 legend.appendChild(item);
