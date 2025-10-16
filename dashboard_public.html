@@ -344,14 +344,6 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 col-lg-12">
-                        <div class="card stats-card">
-                            <div class="card-body">
-                                <h6 class="card-title text-muted">Last Update</h6>
-                                <p class="mb-0" id="lastUpdate">--</p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- View Mode Selection -->
@@ -835,7 +827,6 @@
 
             document.getElementById('dateRange').textContent =
                 `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
-            document.getElementById('lastUpdate').textContent = maxDate.toLocaleString();
         }
 
         function populateTagFilter() {
@@ -1093,18 +1084,6 @@
                     'max': maxTimestamp
                 },
                 step: 86400, // 1 day in seconds
-                tooltips: [
-                    {
-                        to: function(value) {
-                            return new Date(value * 1000).toLocaleDateString();
-                        }
-                    },
-                    {
-                        to: function(value) {
-                            return new Date(value * 1000).toLocaleDateString();
-                        }
-                    }
-                ],
                 format: {
                     to: function(value) {
                         return Math.round(value);
