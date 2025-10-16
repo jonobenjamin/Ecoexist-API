@@ -117,9 +117,10 @@
 
         .tag-legend {
             background: white;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            font-size: 0.8em;
         }
 
         .tag-color {
@@ -166,20 +167,22 @@
         /* Legend styling - horizontal layout */
         #tagLegend {
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
+            flex-wrap: nowrap;
+            gap: 6px;
+            overflow-x: auto;
         }
 
         #tagLegend .tag-legend {
             margin: 0;
-            padding: 6px 8px;
+            padding: 4px 6px;
             background-color: #f8f9fa;
             border-radius: 4px;
             border: 1px solid #dee2e6;
+            font-size: 0.8em;
+            white-space: nowrap;
             display: flex;
             align-items: center;
             gap: 5px;
-            white-space: nowrap;
         }
 
         /* Print styles */
@@ -270,11 +273,9 @@
             <!-- Main Map Column -->
             <div class="col-lg-8">
                 <div class="card" id="map-container">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">📍 Animal Movement Map (7-Day Rolling Averages)</h5>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="printMap()">
-                            🖨️ Print JPG
-                        </button>
+                    <div class="card-header">
+                        <h5 class="mb-1">📍 Animal Movement Map (7-Day Rolling Averages)</h5>
+                        <small class="text-muted">Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community</small>
                     </div>
                     <div id="map"></div>
 
@@ -401,22 +402,6 @@
         </div>
 
 
-        <!-- Data Download -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">📊 Download Latest Movement Data</h6>
-                        <button class="btn btn-sm btn-outline-primary" onclick="exportData()">
-                            Download CSV
-                        </button>
-                    </div>
-                    <div class="card-body text-center">
-                        <p class="text-muted mb-0">Click the download button to export all filtered movement data as a CSV file.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
         <!-- Loading Overlay -->
@@ -435,8 +420,6 @@
     <!-- Turf.js for convex hull calculations -->
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
-    <!-- html2canvas for map screenshot -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <!-- noUiSlider JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
@@ -472,7 +455,7 @@
 
             // Satellite imagery background
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                attribution: '',
                 maxZoom: 18,
                 opacity: 0.6  // Apply white overlay directly to satellite layer
             }).addTo(map);
@@ -1071,59 +1054,6 @@
             });
         }
 
-        function exportData() {
-            if (filteredData.length === 0) {
-                alert('No data to export');
-                return;
-            }
-
-            // Create CSV content
-            const headers = ['Tag ID', 'Timestamp', 'Latitude', 'Longitude', 'Date', 'Average_Days_Used'];
-            const csvContent = [
-                headers.join(','),
-                ...filteredData.map(item => [
-                    item.tagId,
-                    new Date(item.timestamp * 1000).toISOString(),
-                    item.latitude,
-                    item.longitude,
-                    new Date(item.timestamp * 1000).toLocaleDateString(),
-                    item.daysUsed || 7
-                ].join(','))
-            ].join('\n');
-
-            // Download CSV
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `awt-public-data-${new Date().toISOString().split('T')[0]}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        }
-
-        function printMap() {
-            // Capture the entire map container including legend
-            const mapContainer = document.getElementById('map-container');
-
-            // Use html2canvas to capture the entire map container with legend
-            html2canvas(mapContainer, {
-                scale: 2,
-                useCORS: true,
-                allowTaint: false,
-                logging: false
-            }).then(canvas => {
-                // Convert to JPG and download
-                const link = document.createElement('a');
-                link.download = `awt-public-map-${new Date().toISOString().split('T')[0]}.jpg`;
-                link.href = canvas.toDataURL('image/jpeg', 0.95);
-                link.click();
-            }).catch(error => {
-                console.error('Error capturing map:', error);
-                alert('Error creating map image. Please try again.');
-            });
-        }
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
