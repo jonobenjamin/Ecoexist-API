@@ -248,7 +248,8 @@
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
             <a class="navbar-brand" href="#">
-                🌍 AWT Wildlife Tracking Dashboard - Public
+                <img src="data/ecoexist.jpg" alt="Ecoexist Logo" height="30" class="me-2">
+                Ecoexist Elephant Tracking Dashboard - Public
             </a>
             <div class="ms-auto d-flex align-items-center">
                 <span class="navbar-text text-white me-3">
@@ -274,7 +275,7 @@
             <div class="col-lg-8">
                 <div class="card" id="map-container">
                     <div class="card-header">
-                        <h5 class="mb-1">📍 Animal Movement Map (7-Day Rolling Averages)</h5>
+                        <h5 class="mb-1">📍 Animal Movement Map</h5>
                         <small class="text-muted">Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community</small>
                     </div>
                     <div id="map"></div>
@@ -869,7 +870,7 @@
 
                 item.innerHTML = `
                     <span class="tag-color" style="background-color: ${tagColors[tagId]}"></span>
-                    Tag ${tagId} (7-Day Avg)
+                    Tag ${tagId}
                 `;
 
                 legend.appendChild(item);
