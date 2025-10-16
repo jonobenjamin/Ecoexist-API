@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWT Wildlife Tracking Dashboard</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Bootstrap CSS for styling -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Chart.js for additional visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #2c5530, #4a7c59);
+            border-bottom: 3px solid #1a4a2e;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+            color: white !important;
+        }
+
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #2c5530, #4a7c59);
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: bold;
+        }
+
+        #map {
+            height: 600px;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+        }
+
+
+        .stats-card {
+            background: linear-gradient(135deg, #ffffff, #f8f9fa);
+            border-left: 4px solid #2c5530;
+        }
+
+        .btn-custom {
+            background: linear-gradient(135deg, #2c5530, #4a7c59);
+            border: none;
+            color: white;
+        }
+
+        .btn-custom:hover {
+            background: linear-gradient(135deg, #1a4a2e, #2c5530);
+            color: white;
+        }
+
+        .filter-panel {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .animal-marker {
+            background-color: #2c5530;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .latest-marker {
+            background-color: #ff6b35;
+            border: 3px solid white;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 400px;
+            flex-direction: column;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #2c5530;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tag-legend {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .tag-color {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 2.5px;
+            flex-shrink: 0;
+        }
+
+        /* Login Modal Styles */
+        .login-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .login-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .login-header h3 {
+            color: #2c5530;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-form .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .login-form label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .login-form input[type="text"],
+        .login-form input[type="password"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .login-form input[type="text"]:focus,
+        .login-form input[type="password"]:focus {
+            outline: none;
+            border-color: #2c5530;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #2c5530, #4a7c59);
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .login-btn:hover {
+            background: linear-gradient(135deg, #1a4a2e, #2c5530);
+        }
+
+        .login-error {
+            color: #dc3545;
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+        /* Hide main content initially */
+        .main-content {
+            display: none;
+        }
+
+        .view-mode-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .view-mode-buttons button {
+            flex: 1;
+        }
+
+        .btn-view-mode {
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        .btn-view-mode.active {
+            background: linear-gradient(135deg, #1a4a2e, #2c5530);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Place label styling */
+        .place-label {
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid #333;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #333;
+            padding: 2px 4px;
+            white-space: nowrap;
+            box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+
+        /* Legend styling - vertical layout */
+        #tagLegend {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        #tagLegend .tag-legend {
+            margin: 0;
+            padding: 4px 6px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            font-size: 0.8em;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2.5px;
+            min-height: 20px;
+        }
+
+        /* Print styles */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+
+            #map, #map * {
+                visibility: visible;
+            }
+
+            #map {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+            }
+
+            .card {
+                box-shadow: none;
+                border: none;
+            }
+
+            .card-header {
+                background: white !important;
+                color: black !important;
+                display: block !important;
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                z-index: 1000;
+                padding: 5px 10px;
+                border-radius: 3px;
+                border: 1px solid #ccc;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Modal -->
+    <div id="loginModal" class="login-modal">
+        <div class="login-content">
+            <div class="login-header">
+                <h3>🦏 AWT Dashboard Login</h3>
+                <p>Enter your credentials to access the wildlife tracking data</p>
+            </div>
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="login-btn">Login</button>
+                <div id="loginError" class="login-error" style="display: none;"></div>
+            </form>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <!-- Navigation -->
+        <nav class="navbar navbar-expand-lg navbar-dark">
+            <div class="container">
+                <a class="navbar-brand" href="#">
+                    🦏 AWT Wildlife Tracking Dashboard
+                </a>
+                <div class="ms-auto d-flex align-items-center">
+                    <span class="navbar-text text-white me-3">
+                        Real-time Animal Movement Data
+                    </span>
+                    <button id="logoutBtn" class="btn btn-outline-light btn-sm" onclick="logout()">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Main Map Column -->
+            <div class="col-lg-9">
+                <div class="card" id="map-container">
+                    <div class="card-header">
+                        <h5 class="mb-1">📍 Animal Movement Map</h5>
+                    </div>
+                    <!-- Map and Legend Container -->
+                    <div class="d-flex">
+                        <div id="map" style="flex: 1;"></div>
+                        <!-- Map Legend (right side of map) -->
+                        <div class="bg-white border-start" style="width: 100px; padding: 10px;">
+                            <h6 class="mb-2" style="font-size: 0.9em;">Map Legend</h6>
+                            <div id="tagLegend"></div>
+                        </div>
+                    </div>
+
+                    <!-- Time Animation Slider (embedded in map) -->
+                    <div class="card-body border-top">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <label class="form-label mb-1">⏱️ Date Range: <span id="animationDateRange">Loading...</span></label>
+                                <div id="dateSliderContainer" style="padding: 10px 5px;">
+                                    <!-- noUiSlider will be inserted here -->
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-flex gap-1 align-items-center justify-content-end">
+                                    <button class="btn btn-sm btn-custom" id="playButton" onclick="toggleAnimation()">
+                                        ▶️
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="resetAnimation()">
+                                        ⏮️
+                                    </button>
+                                    <select class="form-select form-select-sm" id="animationSpeed" style="width: auto; font-size: 0.8em;">
+                                        <option value="2000">Slow</option>
+                                        <option value="1000" selected>Normal</option>
+                                        <option value="500">Fast</option>
+                                        <option value="200">Very Fast</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-3">
+                <!-- Statistics Cards -->
+                <div class="row">
+                    <div class="col-md-6 col-lg-6">
+                        <div class="card stats-card">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">Total Animals</h6>
+                                <h3 class="text-success mb-0" id="totalAnimals">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-6">
+                        <div class="card stats-card">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">Number of Fixes</h6>
+                                <h3 class="text-primary mb-0" id="totalLocations">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-12">
+                        <div class="card stats-card">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">Date Range</h6>
+                                <p class="mb-0" id="dateRange">--</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-12">
+                        <div class="card stats-card">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">Last Update</h6>
+                                <p class="mb-0" id="lastUpdate">--</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View Mode Selection -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">📊 View Mode</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="view-mode-buttons">
+                            <button class="btn btn-custom btn-view-mode active" onclick="setViewMode('standard')" id="btnStandard">
+                                Standard
+                            </button>
+                            <button class="btn btn-custom btn-view-mode" onclick="setViewMode('current-historic')" id="btnCurrentHistoric">
+                                Current vs Historic
+                            </button>
+                        </div>
+                        <div class="view-mode-buttons">
+                            <button class="btn btn-custom btn-view-mode" onclick="setViewMode('day-night')" id="btnDayNight">
+                                Day vs Night
+                            </button>
+                            <button class="btn btn-custom btn-view-mode" onclick="setViewMode('home-range')" id="btnHomeRange">
+                                Home Ranges
+                            </button>
+                            <button class="btn btn-custom btn-view-mode" onclick="setViewMode('speed-map')" id="btnSpeedMap">
+                                Speed Map
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters (same width as View Mode) -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">🔍 Filters</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="tagFilter" class="form-label">Animal Tag ID</label>
+                            <select class="form-select" id="tagFilter">
+                                <option value="">All Animals</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3" id="monthFilterContainer" style="display: none;">
+                            <label for="monthFilter" class="form-label">Month/Year</label>
+                            <select class="form-select" id="monthFilter">
+                                <option value="">Current Month</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="dateFrom" class="form-label">From Date</label>
+                            <input type="date" class="form-control" id="dateFrom">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="dateTo" class="form-label">To Date</label>
+                            <input type="date" class="form-control" id="dateTo">
+                        </div>
+
+                        <button class="btn btn-custom w-100" onclick="applyFilters()">
+                            Apply Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p class="mt-3">Loading wildlife data...</p>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Turf.js for convex hull calculations -->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+
+    <script>
+        // Authentication functions
+        function checkLoginStatus() {
+            const isLoggedIn = sessionStorage.getItem('awt_logged_in') === 'true';
+            const loginModal = document.getElementById('loginModal');
+            const mainContent = document.querySelector('.main-content');
+
+            if (isLoggedIn) {
+                loginModal.style.display = 'none';
+                mainContent.style.display = 'block';
+            } else {
+                loginModal.style.display = 'flex';
+                mainContent.style.display = 'none';
+            }
+        }
+
+        function login(username, password) {
+            // Simple authentication - in production, use proper authentication
+            if (username === 'jono' && password === 'password') {
+                sessionStorage.setItem('awt_logged_in', 'true');
+                checkLoginStatus();
+                
+                // Initialize map and load data after successful login
+                initMap();
+                loadData();
+                
+                return true;
+            }
+            return false;
+        }
+
+        function logout() {
+            sessionStorage.removeItem('awt_logged_in');
+            checkLoginStatus();
+        }
+
+        function showLoginError(message) {
+            const errorDiv = document.getElementById('loginError');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideLoginError() {
+            const errorDiv = document.getElementById('loginError');
+            errorDiv.style.display = 'none';
+        }
+
+        // Login form handler
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            hideLoginError();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (login(username, password)) {
+                // Clear form
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+            } else {
+                showLoginError('Invalid username or password');
+            }
+        });
+
+        let map;
+        let allData = [];
+        let filteredData = [];
+        let mapLayers = [];
+        let tagColors = {};
+        let colorIndex = 0;
+        let currentViewMode = 'standard';
+        let geoJsonLayers = [];
+        const colors = [
+            '#2c5530', '#4a7c59', '#6a9d7a', '#8cbe9c',
+            '#ff6b35', '#f7931e', '#ffb627', '#ffea00',
+            '#0077b6', '#0096c7', '#00b4d8', '#48cae4'
+        ];
+
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([-25.0, 28.0], 6); // Centered on Southern Africa
+
+            // Satellite imagery background
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                maxZoom: 18,
+                opacity: 0.6  // Apply white overlay directly to satellite layer
+            }).addTo(map);
+
+            // Add scale bar (shows both metric and imperial, plus scale ratio)
+            L.control.scale({
+                position: 'bottomleft',
+                metric: true,
+                imperial: false,
+                maxWidth: 200
+            }).addTo(map);
+
+            // Add custom scale ratio display (1:xxx)
+            const scaleRatioControl = L.control({ position: 'bottomleft' });
+            scaleRatioControl.onAdd = function(map) {
+                const div = L.DomUtil.create('div', 'scale-ratio-control');
+                div.style.background = 'rgba(255, 255, 255, 0.9)';
+                div.style.padding = '5px 8px';
+                div.style.margin = '0 0 5px 0';
+                div.style.border = '2px solid rgba(0,0,0,0.2)';
+                div.style.borderRadius = '4px';
+                div.style.fontSize = '12px';
+                div.style.fontWeight = 'bold';
+                div.style.lineHeight = '1.2';
+                div.innerHTML = 'Scale: 1:1,000,000';
+                
+                // Update scale ratio on zoom
+                map.on('zoomend', function() {
+                    const zoom = map.getZoom();
+                    const metersPerPixel = 40075016.686 * Math.abs(Math.cos(map.getCenter().lat * Math.PI / 180)) / Math.pow(2, zoom + 8);
+                    const scale = Math.round(metersPerPixel * 96 / 0.0254); // Convert to map scale
+                    div.innerHTML = 'Scale: 1:' + scale.toLocaleString();
+                });
+                
+                return div;
+            };
+            scaleRatioControl.addTo(map);
+
+            // Load GeoJSON layers
+            loadGeoJsonLayers();
+
+        }
+
+        // Label positioning constants
+        const LABEL_WIDTH = 80;  // Estimated label width in pixels
+        const LABEL_HEIGHT = 20; // Estimated label height in pixels
+
+        // Track used label positions to prevent overlaps
+        let usedLabelBounds = [];
+
+        // Check if a label position would overlap with existing labels
+        function checkLabelOverlap(bounds) {
+            for (let existing of usedLabelBounds) {
+                // Check bounding box overlap
+                if (!(bounds.right < existing.left || 
+                      bounds.left > existing.right || 
+                      bounds.bottom < existing.top || 
+                      bounds.top > existing.bottom)) {
+                    return true; // Overlap detected
+                }
+            }
+            return false;
+        }
+
+        // Find best tooltip direction to avoid overlaps
+        function findBestTooltipDirection(latlng, name) {
+            const point = map.latLngToContainerPoint(latlng);
+            const labelWidth = name.length * 6 + 10; // Reduced padding for tighter packing
+            const labelHeight = 20;
+            const baseOffset = 10;
+
+            // Try multiple offsets and directions to find best non-overlapping position
+            const offsets = [baseOffset, baseOffset + 10, baseOffset + 20, baseOffset + 30];
+            
+            for (let offset of offsets) {
+                const directions = [
+                    { dir: 'right', bounds: { left: point.x + offset, right: point.x + offset + labelWidth, top: point.y - labelHeight/2, bottom: point.y + labelHeight/2 } },
+                    { dir: 'left', bounds: { left: point.x - offset - labelWidth, right: point.x - offset, top: point.y - labelHeight/2, bottom: point.y + labelHeight/2 } },
+                    { dir: 'top', bounds: { left: point.x - labelWidth/2, right: point.x + labelWidth/2, top: point.y - offset - labelHeight, bottom: point.y - offset } },
+                    { dir: 'bottom', bounds: { left: point.x - labelWidth/2, right: point.x + labelWidth/2, top: point.y + offset, bottom: point.y + offset + labelHeight } },
+                    { dir: 'topright', bounds: { left: point.x + offset, right: point.x + offset + labelWidth, top: point.y - offset - labelHeight, bottom: point.y - offset } },
+                    { dir: 'topleft', bounds: { left: point.x - offset - labelWidth, right: point.x - offset, top: point.y - offset - labelHeight, bottom: point.y - offset } },
+                    { dir: 'bottomright', bounds: { left: point.x + offset, right: point.x + offset + labelWidth, top: point.y + offset, bottom: point.y + offset + labelHeight } },
+                    { dir: 'bottomleft', bounds: { left: point.x - offset - labelWidth, right: point.x - offset, top: point.y + offset, bottom: point.y + offset + labelHeight } }
+                ];
+
+                for (let option of directions) {
+                    if (!checkLabelOverlap(option.bounds)) {
+                        usedLabelBounds.push(option.bounds);
+                        return option.dir;
+                    }
+                }
+            }
+
+            // If all fail, use right with maximum offset and mark it anyway
+            const fallbackBounds = { 
+                left: point.x + baseOffset + 40, 
+                right: point.x + baseOffset + 40 + labelWidth, 
+                top: point.y - labelHeight/2, 
+                bottom: point.y + labelHeight/2 
+            };
+            usedLabelBounds.push(fallbackBounds);
+            return 'right';
+        }
+
+        // Load and display GeoJSON layers (roads and populated places)
+        function loadGeoJsonLayers() {
+            // Clear existing GeoJSON layers
+            geoJsonLayers.forEach(layer => {
+                if (map.hasLayer(layer)) {
+                    map.removeLayer(layer);
+                }
+            });
+            geoJsonLayers = [];
+            usedLabelBounds = [];
+
+            // Load populated places - sort by importance for better label priority
+            fetch('data/populated places.geojson')
+                .then(response => response.json())
+                .then(data => {
+                    // Store the data globally for zoom-based filtering
+                    window.populatedPlacesData = data;
+                    
+                    // Sort features by population/importance (cities first, then villages)
+                    const sortedFeatures = data.features.sort((a, b) => {
+                        const getPriority = (feature) => {
+                            if (feature.properties.place === 'city') return 1;
+                            if (feature.properties.place === 'village') return 2;
+                            if (feature.properties.place === 'village') return 3;
+                            return 4;
+                        };
+                        return getPriority(a) - getPriority(b);
+                    });
+
+                    // Function to get current map scale
+                    function getMapScale() {
+                        const zoom = map.getZoom();
+                        const metersPerPixel = 40075016.686 * Math.abs(Math.cos(map.getCenter().lat * Math.PI / 180)) / Math.pow(2, zoom + 8);
+                        return Math.round(metersPerPixel * 96 / 0.0254);
+                    }
+
+                    // Function to filter places based on scale
+                    function getVisiblePlaceTypes(scale) {
+                        if (scale > 4300000) {
+                            // Zoomed out: only cities
+                            return ['city'];
+                        } else if (scale > 2000000) {
+                            // Medium zoom: cities and towns
+                            return ['city', 'town'];
+                        } else if (scale > 1000000) {
+                            // Medium-close zoom: cities, towns, and villages
+                            return ['city', 'town', 'village'];
+                        } else {
+                            // Zoomed in: show everything
+                            return ['city', 'town', 'village', 'hamlet'];
+                        }
+                    }
+
+                    // Function to render places with current zoom level filtering
+                    function renderPlaces() {
+                        // Remove existing places layer
+                        geoJsonLayers.forEach((layer, index) => {
+                            if (layer.options && layer.options.layerType === 'places') {
+                                map.removeLayer(layer);
+                                geoJsonLayers.splice(index, 1);
+                            }
+                        });
+                        usedLabelBounds = [];
+
+                        const currentScale = getMapScale();
+                        const visibleTypes = getVisiblePlaceTypes(currentScale);
+                        
+                        // Filter features based on zoom level
+                        const filteredFeatures = sortedFeatures.filter(feature => {
+                            const placeType = feature.properties.place;
+                            return visibleTypes.includes(placeType);
+                        });
+
+                        const populatedPlacesLayer = L.geoJSON({ ...data, features: filteredFeatures }, {
+                            layerType: 'places', // Custom property to identify this layer
+                            pointToLayer: function(feature, latlng) {
+                                const marker = L.circleMarker(latlng, {
+                                    color: 'black',
+                                    fillColor: 'black',
+                                    fillOpacity: 0.7,
+                                    radius: 3
+                                });
+
+                                // Always add label - smart positioning will handle overlaps
+                                const name = feature.properties.name || feature.properties.name_en;
+                                if (name) {
+                                    const direction = findBestTooltipDirection(latlng, name);
+                                    
+                                    // Calculate dynamic offset based on label length to avoid overlaps
+                                    const labelLength = name.length;
+                                    const baseOffset = 10;
+                                    const extraOffset = Math.min(labelLength * 0.5, 15);
+                                    
+                                    let offset;
+                                    switch(direction) {
+                                        case 'right': offset = [baseOffset + extraOffset, 0]; break;
+                                        case 'left': offset = [-(baseOffset + extraOffset), 0]; break;
+                                        case 'top': offset = [0, -(baseOffset + extraOffset)]; break;
+                                        case 'bottom': offset = [0, baseOffset + extraOffset]; break;
+                                        case 'topright': offset = [baseOffset + extraOffset, -(baseOffset + extraOffset)]; break;
+                                        case 'topleft': offset = [-(baseOffset + extraOffset), -(baseOffset + extraOffset)]; break;
+                                        case 'bottomright': offset = [baseOffset + extraOffset, baseOffset + extraOffset]; break;
+                                        case 'bottomleft': offset = [-(baseOffset + extraOffset), baseOffset + extraOffset]; break;
+                                        default: offset = [baseOffset, 0];
+                                    }
+                                    
+                                    marker.bindTooltip(name, {
+                                        permanent: true,
+                                        direction: direction,
+                                        offset: offset,
+                                        className: 'place-label'
+                                    });
+                                }
+
+                                return marker;
+                            }
+                        });
+                        populatedPlacesLayer.addTo(map);
+                        geoJsonLayers.push(populatedPlacesLayer);
+                        console.log(`Loaded ${filteredFeatures.length} places at scale 1:${currentScale.toLocaleString()}`);
+                    }
+
+                    // Initial render
+                    renderPlaces();
+
+                    // Re-render on zoom
+                    map.on('zoomend', renderPlaces);
+                })
+                .catch(error => console.error('Error loading populated places:', error));
+
+
+            // Load roads
+            fetch('data/Roads.geojson')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Raw road data:', data.features[0]);
+                    
+                    // Convert coordinates from EPSG:3857 to EPSG:4326
+                    // Handle MultiLineString geometry structure
+                    const convertedData = {
+                        type: "FeatureCollection",
+                        features: data.features.map(feature => {
+                            // For MultiLineString, coordinates is array of linestrings
+                            // Each linestring is array of points [x, y]
+                            const convertedCoords = feature.geometry.coordinates.map(lineString => {
+                                return lineString.map(point => {
+                                    const [x, y] = point;
+                                    // Convert Web Mercator (EPSG:3857) to WGS84 (EPSG:4326)
+                                    const lng = (x / 20037508.34) * 180;
+                                    const lat = (Math.atan(Math.exp((y / 20037508.34) * Math.PI)) - Math.PI/4) * 360 / Math.PI;
+                                    return [lng, lat];
+                                });
+                            });
+                            
+                            return {
+                                ...feature,
+                                geometry: {
+                                    type: feature.geometry.type,
+                                    coordinates: convertedCoords
+                                }
+                            };
+                        })
+                    };
+
+                    console.log('Converted road data:', convertedData.features[0]);
+
+                    const roadsLayer = L.geoJSON(convertedData, {
+                        style: {
+                            color: '#000000',
+                            weight: 1.5,
+                            opacity: 0.7
+                        }
+                    });
+
+                    roadsLayer.addTo(map);
+                    geoJsonLayers.push(roadsLayer);
+                    console.log('Roads layer added to map');
+                })
+                .catch(error => console.error('Error loading roads:', error));
+        }
+
+        // Load data from GCS (temporarily public for demo)
+        async function loadData() {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.display = 'flex';
+
+            try {
+                // Load from secure Vercel API
+                const apiUrl = 'https://ecoexist-api.vercel.app/api/awt-data';
+
+                console.log(`Loading data from secure API: ${apiUrl}`);
+
+                // Create Basic Auth header
+                const authHeader = 'Basic ' + btoa('jono:password');
+                console.log('Auth header:', authHeader);
+
+                console.log('Making fetch request to:', apiUrl);
+                console.log('Auth header value:', authHeader);
+                console.log('Auth header length:', authHeader.length);
+
+                try {
+                    console.log('About to call fetch...');
+                    const response = await fetch(apiUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': authHeader
+                        }
+                    });
+
+                    console.log('Response received');
+                    console.log('Response status:', response.status);
+                    console.log('Response ok:', response.ok);
+                    console.log('Response status text:', response.statusText);
+                    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.log('Error response body:', errorText);
+                        throw new Error(`Failed to load data from GCS: ${response.status} ${response.statusText} - ${errorText}`);
+                    }
+                    allData = await response.json();
+                    console.log(`Loaded ${allData.length} records from GCS`);
+                    processData();
+                } catch (fetchError) {
+                    console.error('Fetch error:', fetchError);
+                    throw fetchError;
+                }
+
+            } catch (error) {
+                console.error('Error loading data:', error);
+                console.error('Response status:', error.status);
+                
+                let errorMsg = `Failed to load wildlife tracking data: ${error.message}\n\n`;
+                
+                if (error.message.includes('401')) {
+                    errorMsg += 'Authentication Error (401):\n- The API credentials may not match\n- Check if Vercel deployment is up to date';
+                } else {
+                    errorMsg += 'Please ensure:\n1. Vercel API URL is correct\n2. Environment variables are set in Vercel\n3. API is properly deployed';
+                }
+                
+                alert(errorMsg);
+                allData = []; // Set empty array so UI shows no data
+                processData();
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+
+        // Process and display data
+        function processData() {
+            if (!allData || allData.length === 0) {
+                alert('No data available');
+                return;
+            }
+
+            console.log(`Processing ${allData.length} total records...`);
+
+            // Filter out erroneous data points above the equator (Botswana is in Southern Hemisphere)
+            const originalCount = allData.length;
+            allData = allData.filter(point => point.latitude < 0); // Only keep points below equator
+            const filteredCount = originalCount - allData.length;
+
+            if (filteredCount > 0) {
+                console.log(`Filtered out ${filteredCount} erroneous data points above the equator`);
+                console.log(`Remaining valid records: ${allData.length}`);
+            }
+
+            // Update statistics
+            updateStatistics();
+
+            // Populate tag filter
+            populateTagFilter();
+
+            // Populate month filter
+            populateMonthFilter();
+
+            // Update tag legend
+            updateTagLegend();
+
+            // Apply initial filters
+            applyFilters();
+
+            // Fit map to data extent initially
+            fitMapToDataExtent();
+        }
+
+        function updateStatistics() {
+            const uniqueTags = new Set(allData.map(d => d.tagId));
+            document.getElementById('totalAnimals').textContent = uniqueTags.size;
+            document.getElementById('totalLocations').textContent = allData.length;
+
+            // Calculate date range
+            const timestamps = allData.map(d => d.timestamp);
+            const minDate = new Date(Math.min(...timestamps) * 1000);
+            const maxDate = new Date(Math.max(...timestamps) * 1000);
+
+            document.getElementById('dateRange').textContent =
+                `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
+            document.getElementById('lastUpdate').textContent = maxDate.toLocaleString();
+        }
+
+        function populateTagFilter() {
+            const tagFilter = document.getElementById('tagFilter');
+            const uniqueTags = [...new Set(allData.map(d => d.tagId))].sort();
+
+            // Clear existing options except the first one
+            tagFilter.innerHTML = '<option value="">All Animals</option>';
+
+            uniqueTags.forEach(tagId => {
+                const option = document.createElement('option');
+                option.value = tagId;
+                option.textContent = `Tag ${tagId}`;
+                tagFilter.appendChild(option);
+            });
+        }
+
+        function populateMonthFilter() {
+            const monthFilter = document.getElementById('monthFilter');
+            const monthsSet = new Set();
+
+            allData.forEach(item => {
+                const date = new Date(item.timestamp * 1000);
+                const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                monthsSet.add(monthYear);
+            });
+
+            const months = Array.from(monthsSet).sort().reverse();
+
+            monthFilter.innerHTML = '<option value="">Current Month</option>';
+
+            months.forEach(monthYear => {
+                const [year, month] = monthYear.split('-');
+                const date = new Date(year, month - 1);
+                const monthName = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+                const option = document.createElement('option');
+                option.value = monthYear;
+                option.textContent = monthName;
+                monthFilter.appendChild(option);
+            });
+        }
+
+        function updateTagLegend() {
+            const legend = document.getElementById('tagLegend');
+            const uniqueTags = [...new Set(allData.map(d => d.tagId))].sort();
+
+            legend.innerHTML = '';
+
+            uniqueTags.forEach(tagId => {
+                if (!tagColors[tagId]) {
+                    tagColors[tagId] = colors[colorIndex % colors.length];
+                    colorIndex++;
+                }
+
+                const item = document.createElement('div');
+                item.className = 'tag-legend';
+                
+                let colorDisplay = tagColors[tagId];
+                if (currentViewMode === 'day-night') {
+                    item.innerHTML = `
+                        <span class="tag-color" style="background-color: #ffea00"></span>
+                        <span class="tag-color" style="background-color: #333333"></span>
+                        Tag ${tagId} (Day/Night)
+                    `;
+                } else if (currentViewMode === 'current-historic') {
+                    item.innerHTML = `
+                        <span class="tag-color" style="background-color: ${tagColors[tagId]}"></span>
+                        <span class="tag-color" style="background-color: #888888"></span>
+                        Tag ${tagId} (Current/Historic)
+                    `;
+                } else if (currentViewMode === 'speed-map') {
+                    item.innerHTML = `
+                        <div style="display: inline-block; width: 40px; height: 12px; background: linear-gradient(to right, yellow, orange, red); border-radius: 2px; margin-right: 5px;"></div>
+                        Tag ${tagId} (Speed: Yellow→Red)
+                    `;
+                } else {
+                    item.innerHTML = `
+                        <span class="tag-color" style="background-color: ${colorDisplay}"></span>
+                        Tag ${tagId}
+                    `;
+                }
+                
+                legend.appendChild(item);
+            });
+        }
+
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            
+            // Update button styles
+            document.querySelectorAll('.btn-view-mode').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            if (mode === 'standard') {
+                document.getElementById('btnStandard').classList.add('active');
+                document.getElementById('monthFilterContainer').style.display = 'none';
+            } else if (mode === 'current-historic') {
+                document.getElementById('btnCurrentHistoric').classList.add('active');
+                document.getElementById('monthFilterContainer').style.display = 'block';
+            } else if (mode === 'day-night') {
+                document.getElementById('btnDayNight').classList.add('active');
+                document.getElementById('monthFilterContainer').style.display = 'block';
+            } else if (mode === 'home-range') {
+                document.getElementById('btnHomeRange').classList.add('active');
+                document.getElementById('monthFilterContainer').style.display = 'block';
+            } else if (mode === 'speed-map') {
+                document.getElementById('btnSpeedMap').classList.add('active');
+                document.getElementById('monthFilterContainer').style.display = 'none';
+            }
+            
+            updateTagLegend();
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const tagFilter = document.getElementById('tagFilter').value;
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
+
+            filteredData = allData.filter(item => {
+                // Tag filter
+                if (tagFilter && item.tagId != tagFilter) {
+                    return false;
+                }
+
+                // Date filters
+                if (dateFrom) {
+                    const fromDate = new Date(dateFrom).getTime() / 1000;
+                    if (item.timestamp < fromDate) return false;
+                }
+
+                if (dateTo) {
+                    const toDate = new Date(dateTo).getTime() / 1000;
+                    if (item.timestamp > toDate) return false;
+                }
+
+                return true;
+            });
+
+            updateMap();
+            // updateDataTable(); // Removed - no longer displaying data table
+        }
+
+        function updateMap() {
+            // Clear existing layers
+            mapLayers.forEach(layer => map.removeLayer(layer));
+            mapLayers = [];
+
+            if (currentViewMode === 'standard') {
+                renderStandardView();
+            } else if (currentViewMode === 'current-historic') {
+                renderCurrentHistoricView();
+            } else if (currentViewMode === 'day-night') {
+                renderDayNightView();
+            } else if (currentViewMode === 'home-range') {
+                renderHomeRangeView();
+            } else if (currentViewMode === 'speed-map') {
+                renderSpeedMapView();
+            }
+
+            // Fit map to layers if any exist - tight zoom on AWT data
+            if (mapLayers.length > 0) {
+                const group = new L.featureGroup(mapLayers);
+                map.fitBounds(group.getBounds().pad(0.02));
+            }
+        }
+
+        // Function to fit map to all data extent
+        function fitMapToDataExtent() {
+            if (allData && allData.length > 0) {
+                // Calculate bounds from all data points
+                let minLat = Infinity, maxLat = -Infinity;
+                let minLng = Infinity, maxLng = -Infinity;
+
+                allData.forEach(point => {
+                    minLat = Math.min(minLat, point.latitude);
+                    maxLat = Math.max(maxLat, point.latitude);
+                    minLng = Math.min(minLng, point.longitude);
+                    maxLng = Math.max(maxLng, point.longitude);
+                });
+
+                // Add minimal padding and fit bounds - tight zoom on data
+                const bounds = [[minLat, minLng], [maxLat, maxLng]];
+                map.fitBounds(bounds, { padding: [20, 20] });
+            }
+        }
+
+        function renderStandardView() {
+            // Group data by tag
+            const dataByTag = {};
+            filteredData.forEach(item => {
+                if (!dataByTag[item.tagId]) {
+                    dataByTag[item.tagId] = [];
+                }
+                dataByTag[item.tagId].push(item);
+            });
+
+            // For each tag, create a polyline
+            Object.keys(dataByTag).forEach(tagId => {
+                const tagData = dataByTag[tagId].sort((a, b) => a.timestamp - b.timestamp);
+                const coordinates = tagData.map(item => [item.latitude, item.longitude]);
+                const color = tagColors[tagId] || '#2c5530';
+
+                if (coordinates.length > 1) {
+                    const polyline = L.polyline(coordinates, {
+                        color: color,
+                        weight: 3,
+                        opacity: 0.8
+                    });
+
+                    polyline.bindPopup(`
+                        <strong>Tag ${tagId}</strong><br>
+                        Points: ${coordinates.length}<br>
+                        From: ${new Date(tagData[0].timestamp * 1000).toLocaleDateString()}<br>
+                        To: ${new Date(tagData[tagData.length - 1].timestamp * 1000).toLocaleDateString()}
+                    `);
+
+                    polyline.addTo(map);
+                    mapLayers.push(polyline);
+                }
+            });
+        }
+
+        function renderCurrentHistoricView() {
+            const monthFilter = document.getElementById('monthFilter').value;
+            
+            // Determine current month
+            let currentMonth, currentYear;
+            if (monthFilter) {
+                const [year, month] = monthFilter.split('-');
+                currentYear = parseInt(year);
+                currentMonth = parseInt(month);
+            } else {
+                const now = new Date();
+                currentYear = now.getFullYear();
+                currentMonth = now.getMonth() + 1;
+            }
+
+            // Group data by tag and time period
+            const dataByTag = {};
+            filteredData.forEach(item => {
+                if (!dataByTag[item.tagId]) {
+                    dataByTag[item.tagId] = { current: [], historic: [] };
+                }
+                
+                const date = new Date(item.timestamp * 1000);
+                const itemYear = date.getFullYear();
+                const itemMonth = date.getMonth() + 1;
+                
+                if (itemYear === currentYear && itemMonth === currentMonth) {
+                    dataByTag[item.tagId].current.push(item);
+                } else {
+                    dataByTag[item.tagId].historic.push(item);
+                }
+            });
+
+            // Draw historic tracks first (grey)
+            Object.keys(dataByTag).forEach(tagId => {
+                const historicData = dataByTag[tagId].historic.sort((a, b) => a.timestamp - b.timestamp);
+                
+                if (historicData.length > 1) {
+                    const coordinates = historicData.map(item => [item.latitude, item.longitude]);
+                    const polyline = L.polyline(coordinates, {
+                        color: '#888888',
+                        weight: 2,
+                        opacity: 0.5
+                    });
+
+                    polyline.bindPopup(`
+                        <strong>Tag ${tagId} - Historic</strong><br>
+                        Points: ${coordinates.length}<br>
+                        From: ${new Date(historicData[0].timestamp * 1000).toLocaleDateString()}<br>
+                        To: ${new Date(historicData[historicData.length - 1].timestamp * 1000).toLocaleDateString()}
+                    `);
+
+                    polyline.addTo(map);
+                    mapLayers.push(polyline);
+                }
+            });
+
+            // Draw current tracks on top (colored)
+            Object.keys(dataByTag).forEach(tagId => {
+                const currentData = dataByTag[tagId].current.sort((a, b) => a.timestamp - b.timestamp);
+                const color = tagColors[tagId] || '#2c5530';
+                
+                if (currentData.length > 1) {
+                    const coordinates = currentData.map(item => [item.latitude, item.longitude]);
+                    const polyline = L.polyline(coordinates, {
+                        color: color,
+                        weight: 3,
+                        opacity: 1
+                    });
+
+                    polyline.bindPopup(`
+                        <strong>Tag ${tagId} - Current Month</strong><br>
+                        Points: ${coordinates.length}<br>
+                        From: ${new Date(currentData[0].timestamp * 1000).toLocaleDateString()}<br>
+                        To: ${new Date(currentData[currentData.length - 1].timestamp * 1000).toLocaleDateString()}
+                    `);
+
+                    polyline.addTo(map);
+                    mapLayers.push(polyline);
+                }
+            });
+        }
+
+        function renderDayNightView() {
+            // Group data by tag
+            const dataByTag = {};
+            filteredData.forEach(item => {
+                if (!dataByTag[item.tagId]) {
+                    dataByTag[item.tagId] = [];
+                }
+                dataByTag[item.tagId].push(item);
+            });
+
+            // For each tag, create polylines with time-based coloring
+            Object.keys(dataByTag).forEach(tagId => {
+                const tagData = dataByTag[tagId].sort((a, b) => a.timestamp - b.timestamp);
+
+                if (tagData.length > 1) {
+                    // Create segments with individual colors based on time of day
+                    for (let i = 0; i < tagData.length - 1; i++) {
+                        const point1 = tagData[i];
+                        const point2 = tagData[i + 1];
+
+                        // Determine color based on the time of the second point
+                        const date = new Date(point2.timestamp * 1000);
+                        const hour = date.getHours();
+                        const color = (hour >= 6 && hour < 18) ? '#ffea00' : '#333333'; // Yellow for day, dark grey for night
+
+                        const coordinates = [
+                            [point1.latitude, point1.longitude],
+                            [point2.latitude, point2.longitude]
+                        ];
+
+                        const polyline = L.polyline(coordinates, {
+                            color: color,
+                            weight: 3,
+                            opacity: 0.8
+                        });
+
+                        polyline.bindPopup(`
+                            <strong>Tag ${tagId}</strong><br>
+                            Time: ${date.toLocaleString()}<br>
+                            Period: ${(hour >= 6 && hour < 18) ? 'Day (6AM-6PM)' : 'Night (6PM-6AM)'}
+                        `);
+
+                        polyline.addTo(map);
+                        mapLayers.push(polyline);
+                    }
+                }
+            });
+        }
+
+        function renderHomeRangeView() {
+            // Group data by tag
+            const dataByTag = {};
+            filteredData.forEach(item => {
+                if (!dataByTag[item.tagId]) {
+                    dataByTag[item.tagId] = [];
+                }
+                dataByTag[item.tagId].push(item);
+            });
+
+            // For each tag, create a convex hull
+            Object.keys(dataByTag).forEach(tagId => {
+                const tagData = dataByTag[tagId];
+                const color = tagColors[tagId] || '#2c5530';
+
+                if (tagData.length >= 3) {
+                    // Create points for turf
+                    const points = turf.featureCollection(
+                        tagData.map(item => turf.point([item.longitude, item.latitude]))
+                    );
+
+                    try {
+                        // Calculate convex hull
+                        const hull = turf.convex(points);
+
+                        if (hull) {
+                            // Convert to Leaflet format
+                            const coords = hull.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+
+                            const polygon = L.polygon(coords, {
+                                color: color,
+                                fillColor: color,
+                                fillOpacity: 0.2,
+                                weight: 2
+                            });
+
+                            polygon.bindPopup(`
+                                <strong>Tag ${tagId} - Home Range</strong><br>
+                                Points: ${tagData.length}<br>
+                                Area: ~${(turf.area(hull) / 1000000).toFixed(2)} km²
+                            `);
+
+                            polygon.addTo(map);
+                            mapLayers.push(polygon);
+                        }
+                    } catch (error) {
+                        console.error(`Error creating home range for tag ${tagId}:`, error);
+                    }
+                }
+            });
+        }
+
+        function renderSpeedMapView() {
+            // Group data by tag
+            const dataByTag = {};
+            filteredData.forEach(item => {
+                if (!dataByTag[item.tagId]) {
+                    dataByTag[item.tagId] = [];
+                }
+                dataByTag[item.tagId].push(item);
+            });
+
+            // Speed color mapping function (yellow to dark red gradient)
+            function getSpeedColor(speed) {
+                // Normalize speed from 0-15 km/h to 0-1
+                const normalizedSpeed = Math.min(speed / 15, 1);
+
+                // Interpolate from yellow (255, 255, 0) to dark red (139, 0, 0)
+                const r = Math.round(255 - (255 - 139) * normalizedSpeed);
+                const g = Math.round(255 * (1 - normalizedSpeed));
+                const b = 0;
+
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+
+            // For each tag, create polylines with speed-based coloring
+            Object.keys(dataByTag).forEach(tagId => {
+                const tagData = dataByTag[tagId].sort((a, b) => a.timestamp - b.timestamp);
+
+                if (tagData.length > 1) {
+                    // Create segments with individual colors based on speed
+                    for (let i = 0; i < tagData.length - 1; i++) {
+                        const point1 = tagData[i];
+                        const point2 = tagData[i + 1];
+
+                        // Use the speed of the second point for coloring
+                        const speed = point2.speed || 0;
+                        const color = getSpeedColor(speed);
+
+                        const coordinates = [
+                            [point1.latitude, point1.longitude],
+                            [point2.latitude, point2.longitude]
+                        ];
+
+                        const polyline = L.polyline(coordinates, {
+                            color: color,
+                            weight: 3,
+                            opacity: 0.8
+                        });
+
+                        polyline.bindPopup(`
+                            <strong>Tag ${tagId}</strong><br>
+                            Speed: ${speed.toFixed(2)} km/h<br>
+                            From: ${new Date(point1.timestamp * 1000).toLocaleString()}<br>
+                            To: ${new Date(point2.timestamp * 1000).toLocaleString()}
+                        `);
+
+                        polyline.addTo(map);
+                        mapLayers.push(polyline);
+                    }
+                }
+            });
+        }
+
+        function updateDataTable() {
+            const tbody = document.getElementById('dataTableBody');
+            tbody.innerHTML = '';
+
+            // Sort by timestamp (newest first) and limit to 100 rows
+            const sortedData = filteredData
+                .sort((a, b) => b.timestamp - a.timestamp)
+                .slice(0, 100);
+
+            sortedData.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.tagId}</td>
+                    <td>${new Date(item.timestamp * 1000).toLocaleString()}</td>
+                    <td>${item.latitude.toFixed(6)}</td>
+                    <td>${item.longitude.toFixed(6)}</td>
+                    <td>${item.temperature}</td>
+                    <td>${item.voltage}</td>
+                    <td>${item.movement ? '✓' : '✗'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            checkLoginStatus();
+            
+            // Only load data if already logged in
+            const isLoggedIn = sessionStorage.getItem('awt_logged_in') === 'true';
+            if (isLoggedIn) {
+                initMap();
+                loadData();
+            }
+        });
+
+        // Auto-refresh every 5 minutes (only if logged in)
+        setInterval(function() {
+            const isLoggedIn = sessionStorage.getItem('awt_logged_in') === 'true';
+            if (isLoggedIn) {
+                loadData();
+            }
+        }, 300000);
+    </script>
+</body>
+</html>
+
