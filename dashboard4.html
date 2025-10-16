@@ -343,7 +343,8 @@
         <nav class="navbar navbar-expand-lg navbar-dark">
             <div class="container">
                 <a class="navbar-brand" href="#">
-                    🦏 AWT Wildlife Tracking Dashboard
+                    <img src="data/ecoexist.jpg" alt="Ecoexist Logo" height="30" class="me-2">
+                    AWT Wildlife Tracking Dashboard
                 </a>
                 <div class="ms-auto d-flex align-items-center">
                     <span class="navbar-text text-white me-3">
@@ -363,8 +364,7 @@
                 <div class="card" id="map-container">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
-                            <img src="data/ecoexist.jpg" alt="Ecoexist Logo" height="30" class="me-2">
-                            Animal Movement Map
+                            📍 Animal Movement Map
                         </h5>
                         <button class="btn btn-sm btn-outline-secondary" onclick="printMap()">
                             🖨️ Print JPG
@@ -1629,10 +1629,14 @@
             const dayStep = 86400; // 1 day in seconds
             const windowSize = 7 * dayStep; // Show 7 days at a time
 
-            // Reset to start if we're at the end
-            if (currentAnimationEnd >= maxTimestamp) {
+            // If we're at the end or just starting, reset to beginning
+            if (currentAnimationEnd >= maxTimestamp - dayStep || currentAnimationEnd - currentAnimationStart < windowSize) {
                 currentAnimationStart = minTimestamp;
                 currentAnimationEnd = minTimestamp + windowSize;
+                // Update slider to match
+                if (dateSlider) {
+                    dateSlider.set([currentAnimationStart, currentAnimationEnd]);
+                }
             }
 
             animationInterval = setInterval(() => {
