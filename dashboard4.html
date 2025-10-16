@@ -392,7 +392,7 @@
                             <div class="col-md-4">
                                 <div class="d-flex gap-1 align-items-center justify-content-end">
                                     <button class="btn btn-sm btn-custom" id="playButton" onclick="toggleAnimation()">
-                                        ▶️
+                                        ▶️ Play
                                     </button>
                                     <button class="btn btn-sm btn-outline-secondary" onclick="resetAnimation()">
                                         ⏮️
@@ -620,6 +620,15 @@
         let colorIndex = 0;
         let currentViewMode = 'standard';
         let geoJsonLayers = [];
+
+        // Animation variables
+        let dateSlider = null;
+        let animationInterval = null;
+        let isAnimating = false;
+        let minTimestamp = 0;
+        let maxTimestamp = 0;
+        let currentAnimationStart = 0;
+        let currentAnimationEnd = 0;
         const colors = [
             '#2c5530', '#4a7c59', '#6a9d7a', '#8cbe9c',
             '#ff6b35', '#f7931e', '#ffb627', '#ffea00',
@@ -1629,14 +1638,23 @@
             const dayStep = 86400; // 1 day in seconds
             const windowSize = 7 * dayStep; // Show 7 days at a time
 
-            // If we're at the end or just starting, reset to beginning
-            if (currentAnimationEnd >= maxTimestamp - dayStep || currentAnimationEnd - currentAnimationStart < windowSize) {
-                currentAnimationStart = minTimestamp;
-                currentAnimationEnd = minTimestamp + windowSize;
-                // Update slider to match
-                if (dateSlider) {
-                    dateSlider.set([currentAnimationStart, currentAnimationEnd]);
-                }
+            // Always start animation from current slider position with a 7-day window
+            // If the current window is larger than 7 days, center it on the current position
+            const currentCenter = (currentAnimationStart + currentAnimationEnd) / 2;
+            const halfWindow = windowSize / 2;
+
+            currentAnimationStart = Math.max(minTimestamp, currentCenter - halfWindow);
+            currentAnimationEnd = Math.min(maxTimestamp, currentAnimationStart + windowSize);
+
+            // Adjust start if we're too close to the end
+            if (currentAnimationEnd > maxTimestamp) {
+                currentAnimationEnd = maxTimestamp;
+                currentAnimationStart = Math.max(minTimestamp, maxTimestamp - windowSize);
+            }
+
+            // Update slider to match the animation window
+            if (dateSlider) {
+                dateSlider.set([currentAnimationStart, currentAnimationEnd]);
             }
 
             animationInterval = setInterval(() => {
