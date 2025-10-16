@@ -1528,6 +1528,137 @@
             });
         }
 
+        // ==================== ANIMATION FUNCTIONS ====================
+
+        function initializeDateSlider() {
+            if (!allData || allData.length === 0) return;
+
+            // Get timestamp range from all data
+            const timestamps = allData.map(d => d.timestamp);
+            minTimestamp = Math.min(...timestamps);
+            maxTimestamp = Math.max(...timestamps);
+
+            // Initialize slider range to full dataset
+            currentAnimationStart = minTimestamp;
+            currentAnimationEnd = maxTimestamp;
+
+            const sliderContainer = document.getElementById('dateSliderContainer');
+            sliderContainer.innerHTML = ''; // Clear any existing slider
+
+            // Create slider
+            dateSlider = noUiSlider.create(sliderContainer, {
+                start: [minTimestamp, maxTimestamp],
+                connect: true,
+                range: {
+                    'min': minTimestamp,
+                    'max': maxTimestamp
+                },
+                step: 86400, // 1 day in seconds
+                format: {
+                    to: function(value) {
+                        return Math.round(value);
+                    },
+                    from: function(value) {
+                        return Number(value);
+                    }
+                }
+            });
+
+            // Update display and map when slider changes
+            dateSlider.on('update', function(values) {
+                currentAnimationStart = parseInt(values[0]);
+                currentAnimationEnd = parseInt(values[1]);
+                updateAnimationDateRange();
+                updateMapWithDateRange();
+            });
+
+            updateAnimationDateRange();
+        }
+
+        function updateAnimationDateRange() {
+            const startDate = new Date(currentAnimationStart * 1000).toLocaleDateString();
+            const endDate = new Date(currentAnimationEnd * 1000).toLocaleDateString();
+            document.getElementById('animationDateRange').textContent = `${startDate} - ${endDate}`;
+        }
+
+        function updateMapWithDateRange() {
+            // Filter data by current date range
+            filteredData = allData.filter(item => {
+                const tagFilterValue = document.getElementById('tagFilter').value;
+
+                // Tag filter
+                if (tagFilterValue && item.tagId != tagFilterValue) {
+                    return false;
+                }
+
+                // Date range filter
+                return item.timestamp >= currentAnimationStart && item.timestamp <= currentAnimationEnd;
+            });
+
+            updateMap();
+        }
+
+        function toggleAnimation() {
+            if (isAnimating) {
+                stopAnimation();
+            } else {
+                startAnimation();
+            }
+        }
+
+        function startAnimation() {
+            isAnimating = true;
+            document.getElementById('playButton').innerHTML = '⏸️ Pause';
+
+            const speed = parseInt(document.getElementById('animationSpeed').value);
+            const dayStep = 86400; // 1 day in seconds
+            const windowSize = 7 * dayStep; // Show 7 days at a time
+
+            // Reset to start if we're at the end
+            if (currentAnimationEnd >= maxTimestamp) {
+                currentAnimationStart = minTimestamp;
+                currentAnimationEnd = minTimestamp + windowSize;
+            }
+
+            animationInterval = setInterval(() => {
+                // Move window forward by 1 day
+                currentAnimationStart += dayStep;
+                currentAnimationEnd += dayStep;
+
+                // Stop if we've reached the end
+                if (currentAnimationEnd > maxTimestamp) {
+                    currentAnimationEnd = maxTimestamp;
+                    stopAnimation();
+                    return;
+                }
+
+                // Update slider
+                if (dateSlider) {
+                    dateSlider.set([currentAnimationStart, currentAnimationEnd]);
+                }
+
+            }, speed);
+        }
+
+        function stopAnimation() {
+            isAnimating = false;
+            document.getElementById('playButton').innerHTML = '▶️ Play';
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
+        }
+
+        function resetAnimation() {
+            stopAnimation();
+            currentAnimationStart = minTimestamp;
+            currentAnimationEnd = maxTimestamp;
+
+            if (dateSlider) {
+                dateSlider.set([minTimestamp, maxTimestamp]);
+            }
+        }
+
         function exportData() {
             if (filteredData.length === 0) {
                 alert('No data to export');
