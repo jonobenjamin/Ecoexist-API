@@ -56,12 +56,7 @@ jobs:
         else
           echo "Committing updated averaged data"
           git add data/awt_averaged_data.json
-          git commit -m "🤖 Auto-update: Privacy-protected averaged wildlife data
-
-Generated rolling 7-day averages for animal privacy protection.
-Last updated: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-
-          # Push the changes
+          git commit -m "Auto-update privacy-protected averaged wildlife data - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           git push
         fi
       env:
