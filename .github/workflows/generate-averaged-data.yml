@@ -3,7 +3,7 @@ name: Generate Privacy-Protected Averaged Data
 on:
   schedule:
     - cron: '0 */6 * * *'
-  workflow_dispatch:
+  workflow_dispatch: {}
   push:
     paths:
       - 'generate_averaged_data.js'
