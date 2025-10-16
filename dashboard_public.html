@@ -449,9 +449,9 @@
         function initMap() {
             map = L.map('map', {
                 zoomControl: true,
-                zoomDelta: 0.5,  // Allow half-zoom level increments
-                zoomSnap: 0.5,   // Snap to half-zoom levels
-                wheelPxPerZoomLevel: 120  // Mouse wheel sensitivity
+                zoomDelta: 0.1,  // Very fine zoom increments (1/10 zoom level)
+                zoomSnap: 0.1,   // Snap to 1/10 zoom levels for 100m precision
+                wheelPxPerZoomLevel: 60  // More sensitive mouse wheel (half the default)
             }).setView([-25.0, 28.0], 6); // Centered on Southern Africa
 
             // Satellite imagery background
@@ -485,15 +485,15 @@
                 div.style.lineHeight = '1.2';
                 div.innerHTML = 'Scale: 1:1,000,000';
 
-                // Update scale ratio on zoom with 100m precision
+                // Update scale ratio on zoom with forced 100m increments
                 map.on('zoomend moveend', function() {
                     const zoom = map.getZoom();
                     const metersPerPixel = 40075016.686 * Math.abs(Math.cos(map.getCenter().lat * Math.PI / 180)) / Math.pow(2, zoom + 8);
-                    const scale = Math.round(metersPerPixel * 96 / 0.0254); // Convert to map scale
+                    const exactScale = metersPerPixel * 96 / 0.0254;
 
-                    // Round to nearest 100m increment for better readability
-                    const roundedScale = Math.round(scale / 100) * 100;
-                    div.innerHTML = 'Scale: 1:' + roundedScale.toLocaleString();
+                    // Force scale to be in exact 100m increments (100, 200, 300, etc.)
+                    const baseScale = Math.round(exactScale / 100) * 100;
+                    div.innerHTML = 'Scale: 1:' + baseScale.toLocaleString();
                 });
 
                 return div;
