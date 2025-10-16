@@ -129,6 +129,7 @@
             height: 8px;
             border-radius: 50%;
             margin-right: 5px;
+            flex-shrink: 0;
         }
 
         .view-mode-buttons {
@@ -182,6 +183,7 @@
             display: flex;
             align-items: center;
             gap: 5px;
+            min-height: 20px;
         }
 
         /* Print styles */
@@ -448,7 +450,7 @@
 
             // Satellite imagery background
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: '',
+                attribution: '© Esri',
                 maxZoom: 18,
                 opacity: 0.6  // Apply white overlay directly to satellite layer
             }).addTo(map);
@@ -461,11 +463,6 @@
                 maxWidth: 200
             }).addTo(map);
 
-            // Add Esri attribution as part of Leaflet controls
-            L.control.attribution({
-                position: 'bottomright',
-                prefix: '© Esri'
-            }).addTo(map);
 
             // Add custom scale ratio display (1:xxx)
             const scaleRatioControl = L.control({ position: 'bottomleft' });
