@@ -447,7 +447,12 @@
 
         // Initialize map
         function initMap() {
-            map = L.map('map').setView([-25.0, 28.0], 6); // Centered on Southern Africa
+            map = L.map('map', {
+                zoomControl: true,
+                zoomDelta: 0.5,  // Allow half-zoom level increments
+                zoomSnap: 0.5,   // Snap to half-zoom levels
+                wheelPxPerZoomLevel: 120  // Mouse wheel sensitivity
+            }).setView([-25.0, 28.0], 6); // Centered on Southern Africa
 
             // Satellite imagery background
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -456,12 +461,13 @@
                 opacity: 0.6  // Apply white overlay directly to satellite layer
             }).addTo(map);
 
-            // Add scale bar (shows both metric and imperial, plus scale ratio)
+            // Add scale bar with more precise measurements
             L.control.scale({
                 position: 'bottomleft',
                 metric: true,
                 imperial: false,
-                maxWidth: 200
+                maxWidth: 200,
+                updateWhenIdle: false
             }).addTo(map);
 
 
@@ -479,12 +485,15 @@
                 div.style.lineHeight = '1.2';
                 div.innerHTML = 'Scale: 1:1,000,000';
 
-                // Update scale ratio on zoom
-                map.on('zoomend', function() {
+                // Update scale ratio on zoom with 100m precision
+                map.on('zoomend moveend', function() {
                     const zoom = map.getZoom();
                     const metersPerPixel = 40075016.686 * Math.abs(Math.cos(map.getCenter().lat * Math.PI / 180)) / Math.pow(2, zoom + 8);
                     const scale = Math.round(metersPerPixel * 96 / 0.0254); // Convert to map scale
-                    div.innerHTML = 'Scale: 1:' + scale.toLocaleString();
+
+                    // Round to nearest 100m increment for better readability
+                    const roundedScale = Math.round(scale / 100) * 100;
+                    div.innerHTML = 'Scale: 1:' + roundedScale.toLocaleString();
                 });
 
                 return div;
