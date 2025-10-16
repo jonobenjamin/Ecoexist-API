@@ -70,6 +70,7 @@ async function fetchRawData() {
 
 /**
  * Calculate rolling 7-day averages for a single animal's data
+ * Each output point represents the average location of all points in the previous 7 days
  */
 function calculateRollingAverages(animalData) {
     if (!animalData || animalData.length === 0) {
@@ -80,41 +81,45 @@ function calculateRollingAverages(animalData) {
     const sortedData = animalData.sort((a, b) => a.timestamp - b.timestamp);
     const averagedData = [];
 
-    const SEVEN_DAYS = 7 * 24 * 60 * 60; // 7 days in seconds
+    const SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60; // 7 days in seconds
 
-    // For each data point, calculate average of all points within the previous 7 days
+    // For EVERY data point, calculate the average of all points within the previous 7 days
     for (let i = 0; i < sortedData.length; i++) {
         const currentPoint = sortedData[i];
         const windowEnd = currentPoint.timestamp;
-        const windowStart = windowEnd - SEVEN_DAYS;
+        const windowStart = windowEnd - SEVEN_DAYS_SECONDS;
 
-        // Find all points within the 7-day window (including current point)
-        const windowData = sortedData.filter(point => 
-            point.timestamp >= windowStart && point.timestamp <= windowEnd
-        );
+        // Collect all points within the 7-day window (more efficient than filter for each point)
+        const windowData = [];
+        for (let j = 0; j <= i; j++) {
+            if (sortedData[j].timestamp >= windowStart && sortedData[j].timestamp <= windowEnd) {
+                windowData.push(sortedData[j]);
+            }
+        }
 
-        // Only create averaged point if we have data in the window
+        // Create averaged point if we have data in the window
         if (windowData.length > 0) {
             // Calculate average latitude and longitude
             const avgLat = windowData.reduce((sum, point) => sum + point.latitude, 0) / windowData.length;
             const avgLng = windowData.reduce((sum, point) => sum + point.longitude, 0) / windowData.length;
 
-            // Create averaged data point
+            // Create averaged data point with the SAME timestamp as the original
             averagedData.push({
                 tagId: currentPoint.tagId,
-                timestamp: currentPoint.timestamp,
+                timestamp: currentPoint.timestamp, // Keep original timestamp
                 latitude: Number(avgLat.toFixed(6)),
                 longitude: Number(avgLng.toFixed(6)),
-                daysUsed: windowData.length, // Number of points used in this average
-                originalPoints: windowData.length,
+                pointsInAverage: windowData.length, // How many points were averaged
+                originalTimestamp: currentPoint.timestamp,
                 dateRange: {
-                    start: new Date(windowStart * 1000).toISOString().split('T')[0],
-                    end: new Date(windowEnd * 1000).toISOString().split('T')[0]
+                    start: new Date(windowStart * 1000).toISOString(),
+                    end: new Date(windowEnd * 1000).toISOString()
                 }
             });
         }
     }
 
+    console.log(`  → Input points: ${sortedData.length}, Output points: ${averagedData.length} (kept all points with rolling average)`);
     return averagedData;
 }
 
