@@ -1,0 +1,75 @@
+name: Generate Privacy-Protected Averaged Data
+
+on:
+  schedule:
+    # Run every 6 hours (4 times per day)
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    # Allow manual triggering
+  push:
+    # Also run when the averaging script is updated
+    paths:
+      - 'generate_averaged_data.js'
+      - 'api/awt-data-public.js'
+
+jobs:
+  generate-averaged-data:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Generate averaged data
+      run: node generate_averaged_data.js
+      env:
+        AWT_USERNAME: ${{ secrets.AWT_USERNAME }}
+        AWT_PASSWORD: ${{ secrets.AWT_PASSWORD }}
+        AWT_API_KEY: ${{ secrets.AWT_API_KEY }}
+
+    - name: Check if data was generated
+      run: |
+        if [ -f "data/awt_averaged_data.json" ]; then
+          echo "✓ Averaged data file exists"
+          ls -la data/awt_averaged_data.json
+        else
+          echo "❌ Averaged data file not found"
+          exit 1
+        fi
+
+    - name: Commit and push averaged data
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+        # Check if there are changes to commit
+        if git diff --quiet data/awt_averaged_data.json; then
+          echo "No changes to averaged data"
+        else
+          echo "Committing updated averaged data"
+          git add data/awt_averaged_data.json
+          git commit -m "🤖 Auto-update: Privacy-protected averaged wildlife data
+
+Generated rolling 7-day averages for animal privacy protection.
+Last updated: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+
+          # Push the changes
+          git push
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Log completion
+      run: |
+        echo "✅ Averaged data generation workflow completed"
+        echo "📊 Data file size: $(du -h data/awt_averaged_data.json | cut -f1)"
+        echo "📅 Last modified: $(date -r data/awt_averaged_data.json)"
