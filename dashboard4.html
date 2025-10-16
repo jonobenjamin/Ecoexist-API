@@ -358,8 +358,14 @@
             <!-- Main Map Column -->
             <div class="col-lg-9">
                 <div class="card" id="map-container">
-                    <div class="card-header">
-                        <h5 class="mb-1">📍 Animal Movement Map</h5>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <img src="data/ecoexist.jpg" alt="Ecoexist Logo" height="30" class="me-2">
+                            Animal Movement Map
+                        </h5>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="printMap()">
+                            🖨️ Print JPG
+                        </button>
                     </div>
                     <!-- Map and Legend Container -->
                     <div class="d-flex">
@@ -426,14 +432,6 @@
                             <div class="card-body">
                                 <h6 class="card-title text-muted">Date Range</h6>
                                 <p class="mb-0" id="dateRange">--</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 col-lg-12">
-                        <div class="card stats-card">
-                            <div class="card-body">
-                                <h6 class="card-title text-muted">Last Update</h6>
-                                <p class="mb-0" id="lastUpdate">--</p>
                             </div>
                         </div>
                     </div>
@@ -506,7 +504,24 @@
         </div>
 
 
-    </div>
+        </div>
+
+        <!-- Data Download -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">📊 Download Latest Movement Data</h6>
+                        <button class="btn btn-sm btn-outline-primary" onclick="exportData()">
+                            Download CSV
+                        </button>
+                    </div>
+                    <div class="card-body text-center">
+                        <p class="text-muted mb-0">Click the download button to export all filtered movement data as a CSV file.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Loading Overlay -->
         <div id="loadingOverlay" class="loading" style="display: none;">
@@ -524,6 +539,8 @@
     <!-- Turf.js for convex hull calculations -->
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
+    <!-- html2canvas for map screenshot -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <script>
         // Authentication functions
@@ -609,7 +626,7 @@
 
             // Satellite imagery background
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                attribution: '© Esri',
                 maxZoom: 18,
                 opacity: 0.6  // Apply white overlay directly to satellite layer
             }).addTo(map);
@@ -998,6 +1015,9 @@
             // Apply initial filters
             applyFilters();
 
+            // Initialize date slider for animation
+            initializeDateSlider();
+
             // Fit map to data extent initially
             fitMapToDataExtent();
         }
@@ -1014,7 +1034,6 @@
 
             document.getElementById('dateRange').textContent =
                 `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
-            document.getElementById('lastUpdate').textContent = maxDate.toLocaleString();
         }
 
         function populateTagFilter() {
@@ -1509,7 +1528,61 @@
             });
         }
 
+        function exportData() {
+            if (filteredData.length === 0) {
+                alert('No data to export');
+                return;
+            }
 
+            // Create CSV content
+            const headers = ['Tag ID', 'Timestamp', 'Latitude', 'Longitude', 'Temperature', 'Voltage', 'Movement', 'Speed'];
+            const csvContent = [
+                headers.join(','),
+                ...filteredData.map(item => [
+                    item.tagId,
+                    new Date(item.timestamp * 1000).toISOString(),
+                    item.latitude,
+                    item.longitude,
+                    item.temperature,
+                    item.voltage,
+                    item.movement,
+                    item.speed
+                ].join(','))
+            ].join('\n');
+
+            // Download CSV
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `awt-data-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        function printMap() {
+            // Capture the entire map container including legend
+            const mapContainer = document.getElementById('map-container');
+
+            // Use html2canvas to capture the entire map container with legend
+            html2canvas(mapContainer, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: false,
+                logging: false
+            }).then(canvas => {
+                // Convert to JPG and download
+                const link = document.createElement('a');
+                link.download = `awt-map-${new Date().toISOString().split('T')[0]}.jpg`;
+                link.href = canvas.toDataURL('image/jpeg', 0.95);
+                link.click();
+            }).catch(error => {
+                console.error('Error capturing map:', error);
+                alert('Error creating map image. Please try again.');
+            });
+        }
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
