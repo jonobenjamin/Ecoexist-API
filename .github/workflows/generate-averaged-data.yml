@@ -4,8 +4,7 @@ on:
   schedule:
     # Run every 6 hours (4 times per day)
     - cron: '0 */6 * * *'
-  workflow_dispatch:
-    # Allow manual triggering
+  workflow_dispatch: # Allow manual triggering
   push:
     # Also run when the averaging script is updated
     paths:
