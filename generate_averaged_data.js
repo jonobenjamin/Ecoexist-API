@@ -116,9 +116,19 @@ function calculateRollingAverages(animalData) {
 function processData(rawData) {
     console.log('Processing data for rolling averages...');
 
+    // Filter out erroneous data points above the equator (Botswana is in Southern Hemisphere)
+    const originalCount = rawData.length;
+    const filteredData = rawData.filter(point => point.latitude < 0);
+    const filteredCount = originalCount - filteredData.length;
+
+    if (filteredCount > 0) {
+        console.log(`Filtered out ${filteredCount} erroneous data points above the equator`);
+    }
+    console.log(`Processing ${filteredData.length} valid records...`);
+
     // Group data by tagId
     const dataByTag = {};
-    rawData.forEach(point => {
+    filteredData.forEach(point => {
         if (!dataByTag[point.tagId]) {
             dataByTag[point.tagId] = [];
         }
