@@ -1382,15 +1382,16 @@
         }
 
         function applyFilters() {
+            if (!allData || allData.length === 0) {
+                console.log('⚠️  No data available for filtering');
+                return;
+            }
+
             const tagFilter = document.getElementById('tagFilter').value;
             const dateFrom = document.getElementById('dateFrom').value;
             const dateTo = document.getElementById('dateTo').value;
 
             console.log(`🔍 Applying filters: Tag=${tagFilter || 'All'}, From=${dateFrom || 'None'}, To=${dateTo || 'None'}`);
-
-            // Calculate the actual timestamp range we'll be filtering to
-            let fromTimestamp = dateFrom ? new Date(dateFrom).getTime() / 1000 : minTimestamp;
-            let toTimestamp = dateTo ? new Date(dateTo).getTime() / 1000 : maxTimestamp;
 
             filteredData = allData.filter(item => {
                 // Tag filter
@@ -1450,11 +1451,14 @@
                 renderSpeedMapView();
             }
 
-            // Update statistics based on what's showing
+            // Update statistics based on FULL dataset (not filtered)
             updateStatistics();
             
-            // Update legend based on what's showing
+            // Update legend based on what's currently visible
             updateTagLegend();
+            
+            // Update slider date range display
+            updateAnimationDateRange();
 
             // Fit map to layers if any exist - tight zoom on AWT data
             if (mapLayers.length > 0) {
