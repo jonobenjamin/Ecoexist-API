@@ -1045,9 +1045,16 @@
                     }
                     
                     // Update statistics and filters with new data
+                    console.log('📊 Updating statistics with full historical + live data...');
                     updateStatistics();
                     populateTagFilter();
                     populateMonthFilter();
+                    
+                    // Force update the current view with full data
+                    console.log('🔄 Refreshing current view with expanded dataset...');
+                    if (typeof applyFilters === 'function') {
+                        applyFilters();
+                    }
                 } else {
                     console.log('⚠️  Historical data not available, using live data only');
                 }
@@ -1205,24 +1212,24 @@
         }
 
         function updateStatistics() {
-            // Update animals based on what's currently displayed
-            const displayData = filteredData && filteredData.length > 0 ? filteredData : allData;
+            if (!allData || allData.length === 0) return;
             
-            const uniqueTags = new Set(displayData.map(d => d.tagId));
-            document.getElementById('totalAnimals').textContent = uniqueTags.size;
+            // Total Animals = ALL unique tags in entire dataset (not just visible)
+            const allUniqueTags = new Set(allData.map(d => d.tagId));
+            document.getElementById('totalAnimals').textContent = allUniqueTags.size;
             
-            // Total locations = TOTAL in full dataset (not filtered)
-            document.getElementById('totalLocations').textContent = allData.length;
+            // Total Locations = ALL data points in entire dataset
+            document.getElementById('totalLocations').textContent = allData.length.toLocaleString();
 
             // Date Range tile = FULL dataset range (earliest to latest ever recorded)
-            if (allData && allData.length > 0) {
-                const timestamps = allData.map(d => d.timestamp);
-                const minDate = new Date(Math.min(...timestamps) * 1000);
-                const maxDate = new Date(Math.max(...timestamps) * 1000);
+            const timestamps = allData.map(d => d.timestamp);
+            const minDate = new Date(Math.min(...timestamps) * 1000);
+            const maxDate = new Date(Math.max(...timestamps) * 1000);
 
-                document.getElementById('dateRange').textContent =
-                    `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
-            }
+            document.getElementById('dateRange').textContent =
+                `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
+                
+            console.log(`📊 Statistics updated: ${allUniqueTags.size} animals, ${allData.length.toLocaleString()} fixes, ${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`);
         }
 
         function populateTagFilter() {
@@ -1379,20 +1386,11 @@
             const dateFrom = document.getElementById('dateFrom').value;
             const dateTo = document.getElementById('dateTo').value;
 
-            // If date filters are set, update the slider to match
-            if (dateFrom || dateTo) {
-                const fromTimestamp = dateFrom ? new Date(dateFrom).getTime() / 1000 : minTimestamp;
-                const toTimestamp = dateTo ? new Date(dateTo).getTime() / 1000 : maxTimestamp;
-                
-                currentAnimationStart = fromTimestamp;
-                currentAnimationEnd = toTimestamp;
-                
-                if (dateSlider) {
-                    dateSlider.set([fromTimestamp, toTimestamp]);
-                }
-                
-                updateAnimationDateRange();
-            }
+            console.log(`🔍 Applying filters: Tag=${tagFilter || 'All'}, From=${dateFrom || 'None'}, To=${dateTo || 'None'}`);
+
+            // Calculate the actual timestamp range we'll be filtering to
+            let fromTimestamp = dateFrom ? new Date(dateFrom).getTime() / 1000 : minTimestamp;
+            let toTimestamp = dateTo ? new Date(dateTo).getTime() / 1000 : maxTimestamp;
 
             filteredData = allData.filter(item => {
                 // Tag filter
@@ -1414,8 +1412,25 @@
                 return true;
             });
 
+            console.log(`   Filtered to ${filteredData.length.toLocaleString()} records`);
+
+            // If we have filtered data, adjust the slider to show the actual date range of filtered results
+            if (filteredData.length > 0) {
+                const filteredTimestamps = filteredData.map(d => d.timestamp);
+                const actualMinTimestamp = Math.min(...filteredTimestamps);
+                const actualMaxTimestamp = Math.max(...filteredTimestamps);
+                
+                currentAnimationStart = actualMinTimestamp;
+                currentAnimationEnd = actualMaxTimestamp;
+                
+                if (dateSlider) {
+                    dateSlider.set([actualMinTimestamp, actualMaxTimestamp]);
+                }
+                
+                console.log(`   Slider adjusted to: ${new Date(actualMinTimestamp * 1000).toLocaleDateString()} - ${new Date(actualMaxTimestamp * 1000).toLocaleDateString()}`);
+            }
+
             updateMap();
-            // updateDataTable(); // Removed - no longer displaying data table
         }
 
         function updateMap() {
