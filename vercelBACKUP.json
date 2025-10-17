@@ -1,7 +1,0 @@
-{
-  "version": 2,
-  "rewrites": [
-    { "source": "/api/awt-data", "destination": "/api/awt-data.js" },
-    { "source": "/api/health", "destination": "/api/health.js" }
-  ]
-}
