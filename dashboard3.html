@@ -990,8 +990,24 @@
                 console.log(`✅ Loaded ${liveData.length} live records from GCS`);
 
                 // Merge historical and live data
-                allData = mergeHistoricalAndLiveData(historicalData, liveData);
-                console.log(`🔄 Merged total: ${allData.length} records (${historicalData.length} historical + ${liveData.length} live)`);
+                // For large datasets, use efficient array concatenation
+                if (historicalData.length > 50000) {
+                    console.log('⚠️  Large historical dataset detected, using fast merge...');
+                    console.log(`   Historical: ${historicalData.length.toLocaleString()} records`);
+                    console.log(`   Live: ${liveData.length.toLocaleString()} records`);
+                    
+                    // Use Array.concat() instead of spread operator to avoid stack overflow
+                    allData = historicalData.concat(liveData);
+                    console.log(`✅ Concatenated: ${allData.length.toLocaleString()} records`);
+                    
+                    // Sort by timestamp
+                    console.log('   Sorting data...');
+                    allData.sort((a, b) => a.timestamp - b.timestamp);
+                    console.log('   ✅ Merge complete!');
+                } else {
+                    allData = mergeHistoricalAndLiveData(historicalData, liveData);
+                    console.log(`🔄 Merged total: ${allData.length} records (${historicalData.length} historical + ${liveData.length} live)`);
+                }
 
                 processData();
 
