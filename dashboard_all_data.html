@@ -1056,6 +1056,8 @@
                     // This avoids the stack overflow from updateOptions with large datasets
                     if (dateSlider) {
                         console.log('🔄 Reinitializing slider with full dataset...');
+                        dateSlider.destroy();
+                        dateSlider = null;
                         initializeDateSlider();
                     }
                     
