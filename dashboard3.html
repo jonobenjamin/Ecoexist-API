@@ -1185,11 +1185,16 @@
         }
 
         function updateStatistics() {
-            const uniqueTags = new Set(allData.map(d => d.tagId));
+            // Update based on what's currently displayed (filteredData)
+            const displayData = filteredData && filteredData.length > 0 ? filteredData : allData;
+            
+            const uniqueTags = new Set(displayData.map(d => d.tagId));
             document.getElementById('totalAnimals').textContent = uniqueTags.size;
-            document.getElementById('totalLocations').textContent = allData.length;
+            
+            // Total locations = what's currently shown on map
+            document.getElementById('totalLocations').textContent = displayData.length;
 
-            // Calculate date range
+            // Calculate date range from ALL data (full dataset)
             const timestamps = allData.map(d => d.timestamp);
             const minDate = new Date(Math.min(...timestamps) * 1000);
             const maxDate = new Date(Math.max(...timestamps) * 1000);
@@ -1240,7 +1245,9 @@
 
         function updateTagLegend() {
             const legend = document.getElementById('tagLegend');
-            const uniqueTags = [...new Set(allData.map(d => d.tagId))].sort();
+            // Use filteredData to show only tags currently displayed on map
+            const displayData = filteredData && filteredData.length > 0 ? filteredData : allData;
+            const uniqueTags = [...new Set(displayData.map(d => d.tagId))].sort();
 
             legend.innerHTML = '';
 
@@ -1356,6 +1363,12 @@
             } else if (currentViewMode === 'speed-map') {
                 renderSpeedMapView();
             }
+
+            // Update statistics based on what's showing
+            updateStatistics();
+            
+            // Update legend based on what's showing
+            updateTagLegend();
 
             // Fit map to layers if any exist - tight zoom on AWT data
             if (mapLayers.length > 0) {
