@@ -483,8 +483,8 @@
 
                         <div class="mb-3" id="monthFilterContainer" style="display: none;">
                             <label for="monthFilter" class="form-label">Month/Year</label>
-                            <select class="form-select" id="monthFilter">
-                                <option value="">Current Month</option>
+                            <select class="form-select" id="monthFilter" onchange="handleMonthFilterChange()">
+                                <option value="">All Months</option>
                             </select>
                         </div>
 
@@ -1218,6 +1218,40 @@
             });
         }
 
+        function handleMonthFilterChange() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            
+            if (selectedMonth) {
+                // Get the timestamp range for the selected month
+                const [year, month] = selectedMonth.split('-');
+                const startOfMonth = new Date(year, month - 1, 1).getTime() / 1000;
+                const endOfMonth = new Date(year, month, 0, 23, 59, 59).getTime() / 1000;
+                
+                // Update slider to show the selected month
+                currentAnimationStart = startOfMonth;
+                currentAnimationEnd = endOfMonth;
+                
+                if (dateSlider) {
+                    dateSlider.set([startOfMonth, endOfMonth]);
+                }
+                
+                updateAnimationDateRange();
+                updateMapWithDateRange();
+            } else {
+                // Reset to last 30 days
+                const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 86400);
+                currentAnimationStart = Math.max(thirtyDaysAgo, minTimestamp);
+                currentAnimationEnd = maxTimestamp;
+                
+                if (dateSlider) {
+                    dateSlider.set([currentAnimationStart, currentAnimationEnd]);
+                }
+                
+                updateAnimationDateRange();
+                updateMapWithDateRange();
+            }
+        }
+
         function populateMonthFilter() {
             const monthFilter = document.getElementById('monthFilter');
             const monthsSet = new Set();
@@ -1230,7 +1264,7 @@
 
             const months = Array.from(monthsSet).sort().reverse();
 
-            monthFilter.innerHTML = '<option value="">Current Month</option>';
+            monthFilter.innerHTML = '<option value="">All Months</option>';
 
             months.forEach(monthYear => {
                 const [year, month] = monthYear.split('-');
@@ -1713,18 +1747,13 @@
             minTimestamp = Math.min(...timestamps);
             maxTimestamp = Math.max(...timestamps);
 
-            // On initial load, set slider to show last 30 days
-            // After historical data loads, this will be called again with full range
-            let initialStart = minTimestamp;
+            // Set initial slider position to show last 30 days
+            // Slider range will span full dataset
+            const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 86400);
+            let initialStart = Math.max(thirtyDaysAgo, minTimestamp);
             let initialEnd = maxTimestamp;
-            
-            if (initialLoad) {
-                // First load: show last 30 days
-                const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 86400);
-                initialStart = Math.max(thirtyDaysAgo, minTimestamp);
-            }
 
-            // Initialize slider range
+            // Initialize current animation range
             currentAnimationStart = initialStart;
             currentAnimationEnd = initialEnd;
 
@@ -1844,6 +1873,10 @@
                 if (dateSlider) {
                     dateSlider.set([currentAnimationStart, currentAnimationEnd]);
                 }
+
+                // Update date range display and map
+                updateAnimationDateRange();
+                updateMapWithDateRange();
 
             }, speed);
         }
