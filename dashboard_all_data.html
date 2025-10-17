@@ -1214,13 +1214,15 @@
             // Total locations = TOTAL in full dataset (not filtered)
             document.getElementById('totalLocations').textContent = allData.length;
 
-            // Calculate date range from ALL data (full dataset)
-            const timestamps = allData.map(d => d.timestamp);
-            const minDate = new Date(Math.min(...timestamps) * 1000);
-            const maxDate = new Date(Math.max(...timestamps) * 1000);
+            // Date Range tile = FULL dataset range (earliest to latest ever recorded)
+            if (allData && allData.length > 0) {
+                const timestamps = allData.map(d => d.timestamp);
+                const minDate = new Date(Math.min(...timestamps) * 1000);
+                const maxDate = new Date(Math.max(...timestamps) * 1000);
 
-            document.getElementById('dateRange').textContent =
-                `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
+                document.getElementById('dateRange').textContent =
+                    `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
+            }
         }
 
         function populateTagFilter() {
@@ -1835,9 +1837,19 @@
         }
 
         function updateAnimationDateRange() {
-            const startDate = new Date(currentAnimationStart * 1000).toLocaleDateString();
-            const endDate = new Date(currentAnimationEnd * 1000).toLocaleDateString();
-            document.getElementById('animationDateRange').textContent = `${startDate} - ${endDate}`;
+            // Slider displays the actual date range of data being shown on map
+            if (filteredData && filteredData.length > 0) {
+                const displayTimestamps = filteredData.map(d => d.timestamp);
+                const actualMinDate = new Date(Math.min(...displayTimestamps) * 1000);
+                const actualMaxDate = new Date(Math.max(...displayTimestamps) * 1000);
+                document.getElementById('animationDateRange').textContent = 
+                    `${actualMinDate.toLocaleDateString()} - ${actualMaxDate.toLocaleDateString()}`;
+            } else {
+                // Fallback to slider position if no filtered data
+                const startDate = new Date(currentAnimationStart * 1000).toLocaleDateString();
+                const endDate = new Date(currentAnimationEnd * 1000).toLocaleDateString();
+                document.getElementById('animationDateRange').textContent = `${startDate} - ${endDate}`;
+            }
         }
 
         function updateMapWithDateRange() {
