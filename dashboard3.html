@@ -1185,14 +1185,14 @@
         }
 
         function updateStatistics() {
-            // Update based on what's currently displayed (filteredData)
+            // Update animals based on what's currently displayed
             const displayData = filteredData && filteredData.length > 0 ? filteredData : allData;
             
             const uniqueTags = new Set(displayData.map(d => d.tagId));
             document.getElementById('totalAnimals').textContent = uniqueTags.size;
             
-            // Total locations = what's currently shown on map
-            document.getElementById('totalLocations').textContent = displayData.length;
+            // Total locations = TOTAL in full dataset (not filtered)
+            document.getElementById('totalLocations').textContent = allData.length;
 
             // Calculate date range from ALL data (full dataset)
             const timestamps = allData.map(d => d.timestamp);
@@ -1713,16 +1713,27 @@
             minTimestamp = Math.min(...timestamps);
             maxTimestamp = Math.max(...timestamps);
 
-            // Initialize slider range to full dataset
-            currentAnimationStart = minTimestamp;
-            currentAnimationEnd = maxTimestamp;
+            // On initial load, set slider to show last 30 days
+            // After historical data loads, this will be called again with full range
+            let initialStart = minTimestamp;
+            let initialEnd = maxTimestamp;
+            
+            if (initialLoad) {
+                // First load: show last 30 days
+                const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 86400);
+                initialStart = Math.max(thirtyDaysAgo, minTimestamp);
+            }
+
+            // Initialize slider range
+            currentAnimationStart = initialStart;
+            currentAnimationEnd = initialEnd;
 
             const sliderContainer = document.getElementById('dateSliderContainer');
             sliderContainer.innerHTML = ''; // Clear any existing slider
 
-            // Create slider
+            // Create slider with full range available, but starting position may be last 30 days
             dateSlider = noUiSlider.create(sliderContainer, {
-                start: [minTimestamp, maxTimestamp],
+                start: [initialStart, initialEnd],
                 connect: true,
                 range: {
                     'min': minTimestamp,
@@ -1739,15 +1750,24 @@
                 }
             });
 
-            // Update display and map when slider changes
+            // Update display when slider is being moved (no map update for performance)
             dateSlider.on('update', function(values) {
+                currentAnimationStart = parseInt(values[0]);
+                currentAnimationEnd = parseInt(values[1]);
+                updateAnimationDateRange();
+            });
+
+            // Update map only when slider is released (for performance)
+            dateSlider.on('change', function(values) {
                 currentAnimationStart = parseInt(values[0]);
                 currentAnimationEnd = parseInt(values[1]);
                 updateAnimationDateRange();
                 updateMapWithDateRange();
             });
 
+            // Set initial display and map to show full range
             updateAnimationDateRange();
+            updateMapWithDateRange();
         }
 
         function updateAnimationDateRange() {
