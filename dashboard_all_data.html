@@ -1040,10 +1040,15 @@
                     console.log(`✅ Total data available: ${allData.length.toLocaleString()} records`);
                     console.log('   Slider and filters now have access to full history!');
                     
-                    // Update global min/max timestamps
-                    const timestamps = allData.map(d => d.timestamp);
-                    minTimestamp = Math.min(...timestamps);
-                    maxTimestamp = Math.max(...timestamps);
+                    // Update global min/max timestamps using loop (avoid stack overflow)
+                    minTimestamp = allData[0].timestamp;
+                    maxTimestamp = allData[0].timestamp;
+                    
+                    for (let i = 1; i < allData.length; i++) {
+                        const ts = allData[i].timestamp;
+                        if (ts < minTimestamp) minTimestamp = ts;
+                        if (ts > maxTimestamp) maxTimestamp = ts;
+                    }
                     
                     console.log(`📅 New date range: ${new Date(minTimestamp * 1000).toLocaleDateString()} to ${new Date(maxTimestamp * 1000).toLocaleDateString()}`);
                     
@@ -1226,9 +1231,18 @@
             document.getElementById('totalLocations').textContent = allData.length.toLocaleString();
 
             // Date Range tile = FULL dataset range (earliest to latest ever recorded)
-            const timestamps = allData.map(d => d.timestamp);
-            const minDate = new Date(Math.min(...timestamps) * 1000);
-            const maxDate = new Date(Math.max(...timestamps) * 1000);
+            // Use loop to avoid stack overflow with large datasets
+            let minTimestampStats = allData[0].timestamp;
+            let maxTimestampStats = allData[0].timestamp;
+            
+            for (let i = 1; i < allData.length; i++) {
+                const ts = allData[i].timestamp;
+                if (ts < minTimestampStats) minTimestampStats = ts;
+                if (ts > maxTimestampStats) maxTimestampStats = ts;
+            }
+            
+            const minDate = new Date(minTimestampStats * 1000);
+            const maxDate = new Date(maxTimestampStats * 1000);
 
             document.getElementById('dateRange').textContent =
                 `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
@@ -1421,9 +1435,15 @@
 
             // If we have filtered data, adjust the slider to show the actual date range of filtered results
             if (filteredData.length > 0) {
-                const filteredTimestamps = filteredData.map(d => d.timestamp);
-                const actualMinTimestamp = Math.min(...filteredTimestamps);
-                const actualMaxTimestamp = Math.max(...filteredTimestamps);
+                // Use reduce instead of spread operator to avoid stack overflow with large datasets
+                let actualMinTimestamp = filteredData[0].timestamp;
+                let actualMaxTimestamp = filteredData[0].timestamp;
+                
+                for (let i = 1; i < filteredData.length; i++) {
+                    const ts = filteredData[i].timestamp;
+                    if (ts < actualMinTimestamp) actualMinTimestamp = ts;
+                    if (ts > actualMaxTimestamp) actualMaxTimestamp = ts;
+                }
                 
                 currentAnimationStart = actualMinTimestamp;
                 currentAnimationEnd = actualMaxTimestamp;
@@ -1802,10 +1822,15 @@
         function initializeDateSlider() {
             if (!allData || allData.length === 0) return;
 
-            // Get timestamp range from all data
-            const timestamps = allData.map(d => d.timestamp);
-            minTimestamp = Math.min(...timestamps);
-            maxTimestamp = Math.max(...timestamps);
+            // Get timestamp range from all data using loop (avoid stack overflow)
+            minTimestamp = allData[0].timestamp;
+            maxTimestamp = allData[0].timestamp;
+            
+            for (let i = 1; i < allData.length; i++) {
+                const ts = allData[i].timestamp;
+                if (ts < minTimestamp) minTimestamp = ts;
+                if (ts > maxTimestamp) maxTimestamp = ts;
+            }
 
             console.log(`🔍 Slider Initialization Debug:`);
             console.log(`   Data points: ${allData.length}`);
@@ -1870,9 +1895,18 @@
         function updateAnimationDateRange() {
             // Slider displays the actual date range of data being shown on map
             if (filteredData && filteredData.length > 0) {
-                const displayTimestamps = filteredData.map(d => d.timestamp);
-                const actualMinDate = new Date(Math.min(...displayTimestamps) * 1000);
-                const actualMaxDate = new Date(Math.max(...displayTimestamps) * 1000);
+                // Use loop to avoid stack overflow with large datasets
+                let minTs = filteredData[0].timestamp;
+                let maxTs = filteredData[0].timestamp;
+                
+                for (let i = 1; i < filteredData.length; i++) {
+                    const ts = filteredData[i].timestamp;
+                    if (ts < minTs) minTs = ts;
+                    if (ts > maxTs) maxTs = ts;
+                }
+                
+                const actualMinDate = new Date(minTs * 1000);
+                const actualMaxDate = new Date(maxTs * 1000);
                 document.getElementById('animationDateRange').textContent = 
                     `${actualMinDate.toLocaleDateString()} - ${actualMaxDate.toLocaleDateString()}`;
             } else {
