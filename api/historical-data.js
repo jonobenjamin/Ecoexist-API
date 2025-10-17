@@ -22,7 +22,7 @@ try {
 }
 
 const bucketName = process.env.GCS_BUCKET_NAME;
-const historicalFileName = 'awt_data/historical_data.json'; // Path to historical data in GCS
+const historicalFileName = 'historical_data.json'; // Path to historical data in GCS (root of bucket)
 
 module.exports = async (req, res) => {
     // Enable CORS for all requests first
