@@ -964,6 +964,22 @@
 
                 const liveData = await response.json();
                 console.log(`✅ Loaded ${liveData.length} live records`);
+                
+                // Check sample of data
+                if (liveData.length > 0) {
+                    console.log('Sample record:', liveData[0]);
+                    const timestamps = liveData.map(d => d.timestamp);
+                    const minDate = new Date(Math.min(...timestamps) * 1000);
+                    const maxDate = new Date(Math.max(...timestamps) * 1000);
+                    console.log(`Live data date range: ${minDate.toISOString()} to ${maxDate.toISOString()}`);
+                    
+                    // Check for future dates (data quality issue)
+                    const now = new Date();
+                    if (maxDate > now) {
+                        console.warn(`⚠️  WARNING: Data contains FUTURE dates! Latest: ${maxDate.toISOString()} vs Today: ${now.toISOString()}`);
+                        console.warn(`   This suggests timestamps are off by ~1 year. Check your GPS device clocks or data processing!`);
+                    }
+                }
 
                 // Set allData to live data initially
                 allData = liveData;
@@ -1024,24 +1040,18 @@
                     console.log(`✅ Total data available: ${allData.length.toLocaleString()} records`);
                     console.log('   Slider and filters now have access to full history!');
                     
-                    // Update slider range without changing current position
+                    // Update global min/max timestamps
                     const timestamps = allData.map(d => d.timestamp);
-                    const newMinTimestamp = Math.min(...timestamps);
-                    const newMaxTimestamp = Math.max(...timestamps);
+                    minTimestamp = Math.min(...timestamps);
+                    maxTimestamp = Math.max(...timestamps);
                     
-                    minTimestamp = newMinTimestamp;
-                    maxTimestamp = newMaxTimestamp;
+                    console.log(`📅 New date range: ${new Date(minTimestamp * 1000).toLocaleDateString()} to ${new Date(maxTimestamp * 1000).toLocaleDateString()}`);
                     
-                    // Update the slider's range while keeping current position
+                    // Destroy and recreate the slider with new range
+                    // This avoids the stack overflow from updateOptions with large datasets
                     if (dateSlider) {
-                        dateSlider.updateOptions({
-                            range: {
-                                'min': minTimestamp,
-                                'max': maxTimestamp
-                            }
-                        }, false); // false = don't fire events
-                        
-                        console.log(`📅 Slider updated: Range now ${new Date(minTimestamp * 1000).toLocaleDateString()} to ${new Date(maxTimestamp * 1000).toLocaleDateString()}`);
+                        console.log('🔄 Reinitializing slider with full dataset...');
+                        initializeDateSlider();
                     }
                     
                     // Update statistics and filters with new data
@@ -1049,12 +1059,6 @@
                     updateStatistics();
                     populateTagFilter();
                     populateMonthFilter();
-                    
-                    // Force update the current view with full data
-                    console.log('🔄 Refreshing current view with expanded dataset...');
-                    if (typeof applyFilters === 'function') {
-                        applyFilters();
-                    }
                 } else {
                     console.log('⚠️  Historical data not available, using live data only');
                 }
