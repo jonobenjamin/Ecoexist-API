@@ -1026,55 +1026,43 @@
             }
 
             console.log('🔄 Merging historical and live data...');
+            console.log(`   Processing ${historicalData.length} historical records...`);
+            console.log(`   Processing ${liveData.length} live records...`);
 
-            // Create maps for efficient lookup by tag and date
-            const liveDataMap = new Map();
-            const historicalDataMap = new Map();
+            // Create a Set of unique keys for live data (tagId-date) for fast lookup
+            const liveDataKeys = new Set();
+            
+            // Build live data keys - use simpler key format to avoid memory issues
+            for (let i = 0; i < liveData.length; i++) {
+                const record = liveData[i];
+                const dateKey = Math.floor(record.timestamp / 86400); // Day since epoch
+                const key = `${record.tagId}-${dateKey}`;
+                liveDataKeys.add(key);
+            }
 
-            // Group live data by tagId and date (rounded to day)
-            liveData.forEach(record => {
-                const tagId = record.tagId;
-                const dateKey = new Date(record.timestamp * 1000).toDateString();
+            console.log(`   Built ${liveDataKeys.size} unique live data keys`);
 
-                if (!liveDataMap.has(tagId)) {
-                    liveDataMap.set(tagId, new Map());
-                }
-                liveDataMap.get(tagId).set(dateKey, record);
-            });
+            // Start with all live data
+            const mergedData = [...liveData];
 
-            // Group historical data by tagId and date
-            historicalData.forEach(record => {
-                const tagId = record.tagId;
-                const dateKey = new Date(record.timestamp * 1000).toDateString();
-
-                if (!historicalDataMap.has(tagId)) {
-                    historicalDataMap.set(tagId, new Map());
-                }
-                historicalDataMap.get(tagId).set(dateKey, record);
-            });
-
-            // Merge data: prefer live data for overlapping dates, include all historical data
-            const mergedData = [];
-
-            // Add all live data (these are the most recent and authoritative)
-            liveData.forEach(record => {
-                mergedData.push(record);
-            });
-
-            // Add historical data only for dates/tags not covered by live data
+            // Add historical data only for dates/tags not in live data
             let historicalAdded = 0;
-            historicalData.forEach(record => {
-                const tagId = record.tagId;
-                const dateKey = new Date(record.timestamp * 1000).toDateString();
+            for (let i = 0; i < historicalData.length; i++) {
+                const record = historicalData[i];
+                const dateKey = Math.floor(record.timestamp / 86400);
+                const key = `${record.tagId}-${dateKey}`;
 
-                // Check if we already have live data for this tag and date
-                const hasLiveData = liveDataMap.has(tagId) && liveDataMap.get(tagId).has(dateKey);
-
-                if (!hasLiveData) {
+                // Only add if not in live data
+                if (!liveDataKeys.has(key)) {
                     mergedData.push(record);
                     historicalAdded++;
                 }
-            });
+                
+                // Log progress for large datasets
+                if (i > 0 && i % 10000 === 0) {
+                    console.log(`   Processed ${i}/${historicalData.length} historical records...`);
+                }
+            }
 
             console.log(`📊 Merge results:`);
             console.log(`   - Live data: ${liveData.length} records`);
@@ -1083,7 +1071,9 @@
             console.log(`   - Total merged: ${mergedData.length} records`);
 
             // Sort merged data by timestamp for proper chronological display
+            console.log('   Sorting merged data...');
             mergedData.sort((a, b) => a.timestamp - b.timestamp);
+            console.log('   ✅ Merge complete!');
 
             return mergedData;
         }
