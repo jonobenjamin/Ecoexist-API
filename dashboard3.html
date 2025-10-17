@@ -1024,10 +1024,30 @@
                     console.log(`✅ Total data available: ${allData.length.toLocaleString()} records`);
                     console.log('   Slider and filters now have access to full history!');
                     
-                    // Reinitialize the slider with full date range
-                    if (typeof initializeDateSlider === 'function') {
-                        initializeDateSlider();
+                    // Update slider range without changing current position
+                    const timestamps = allData.map(d => d.timestamp);
+                    const newMinTimestamp = Math.min(...timestamps);
+                    const newMaxTimestamp = Math.max(...timestamps);
+                    
+                    minTimestamp = newMinTimestamp;
+                    maxTimestamp = newMaxTimestamp;
+                    
+                    // Update the slider's range while keeping current position
+                    if (dateSlider) {
+                        dateSlider.updateOptions({
+                            range: {
+                                'min': minTimestamp,
+                                'max': maxTimestamp
+                            }
+                        }, false); // false = don't fire events
+                        
+                        console.log(`📅 Slider updated: Range now ${new Date(minTimestamp * 1000).toLocaleDateString()} to ${new Date(maxTimestamp * 1000).toLocaleDateString()}`);
                     }
+                    
+                    // Update statistics and filters with new data
+                    updateStatistics();
+                    populateTagFilter();
+                    populateMonthFilter();
                 } else {
                     console.log('⚠️  Historical data not available, using live data only');
                 }
