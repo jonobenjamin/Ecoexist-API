@@ -943,33 +943,9 @@
             loadingOverlay.style.display = 'flex';
 
             try {
-                // Load historical data from GCS via API (since bucket is private)
-                let historicalData = [];
-                try {
-                    console.log('Loading historical data from GCS via API...');
-                    // Fetch historical data through the API (you'll need to add this endpoint)
-                    const historicalResponse = await fetch('https://ecoexist-api.vercel.app/api/historical-data', {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': 'Basic ' + btoa('jono:password')
-                        }
-                    });
-                    if (historicalResponse.ok) {
-                        historicalData = await historicalResponse.json();
-                        console.log(`✅ Loaded ${historicalData.length} historical records from GCS via API`);
-                    } else {
-                        console.log('⚠️  Historical data API not available, proceeding with live data only');
-                        console.log('   Make sure to add /api/historical-data endpoint to your Vercel API');
-                    }
-                } catch (historicalError) {
-                    console.log('⚠️  Historical data not available, proceeding with live data only');
-                    console.log('   Error:', historicalError.message);
-                    console.log('   To enable historical data: add API endpoint to serve historical_data.json from GCS');
-                }
-
-                // Load live data from secure Vercel API
+                // Load live data (last 90 days) from secure Vercel API
                 const apiUrl = 'https://ecoexist-api.vercel.app/api/awt-data';
-                console.log(`Loading live data from secure API: ${apiUrl}`);
+                console.log(`📊 Loading live data (last 90 days): ${apiUrl}`);
 
                 // Create Basic Auth header
                 const authHeader = 'Basic ' + btoa('jono:password');
@@ -987,29 +963,22 @@
                 }
 
                 const liveData = await response.json();
-                console.log(`✅ Loaded ${liveData.length} live records from GCS`);
+                console.log(`✅ Loaded ${liveData.length} live records`);
 
-                // Merge historical and live data
-                // For large datasets, use efficient array concatenation
-                if (historicalData.length > 50000) {
-                    console.log('⚠️  Large historical dataset detected, using fast merge...');
-                    console.log(`   Historical: ${historicalData.length.toLocaleString()} records`);
-                    console.log(`   Live: ${liveData.length.toLocaleString()} records`);
-                    
-                    // Use Array.concat() instead of spread operator to avoid stack overflow
-                    allData = historicalData.concat(liveData);
-                    console.log(`✅ Concatenated: ${allData.length.toLocaleString()} records`);
-                    
-                    // Sort by timestamp
-                    console.log('   Sorting data...');
-                    allData.sort((a, b) => a.timestamp - b.timestamp);
-                    console.log('   ✅ Merge complete!');
-                } else {
-                    allData = mergeHistoricalAndLiveData(historicalData, liveData);
-                    console.log(`🔄 Merged total: ${allData.length} records (${historicalData.length} historical + ${liveData.length} live)`);
-                }
+                // Set allData to live data initially
+                allData = liveData;
 
+                // Filter to show only last 30 days initially
+                const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 86400);
+                const initialDisplayData = allData.filter(r => r.timestamp >= thirtyDaysAgo);
+                console.log(`📅 Initial display: Last 30 days = ${initialDisplayData.length} records`);
+
+                // Process and display the last 30 days
                 processData();
+
+                // Load historical data in the background (non-blocking)
+                console.log('🔄 Loading historical data in background...');
+                loadHistoricalDataInBackground(authHeader);
 
             } catch (error) {
                 console.error('❌ Error loading data:', error);
@@ -1027,6 +996,44 @@
                 processData();
             } finally {
                 loadingOverlay.style.display = 'none';
+            }
+        }
+
+        // Background loading of historical data
+        let historicalDataLoaded = false;
+        async function loadHistoricalDataInBackground(authHeader) {
+            try {
+                const historicalResponse = await fetch('https://ecoexist-api.vercel.app/api/historical-data', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': authHeader
+                    }
+                });
+
+                if (historicalResponse.ok) {
+                    const historicalData = await historicalResponse.json();
+                    console.log(`✅ Background load complete: ${historicalData.length.toLocaleString()} historical records`);
+                    
+                    // Merge with existing data
+                    console.log('🔄 Merging historical data...');
+                    const combined = historicalData.concat(allData);
+                    combined.sort((a, b) => a.timestamp - b.timestamp);
+                    allData = combined;
+                    
+                    historicalDataLoaded = true;
+                    console.log(`✅ Total data available: ${allData.length.toLocaleString()} records`);
+                    console.log('   Slider and filters now have access to full history!');
+                    
+                    // Reinitialize the slider with full date range
+                    if (typeof initializeDateSlider === 'function') {
+                        initializeDateSlider();
+                    }
+                } else {
+                    console.log('⚠️  Historical data not available, using live data only');
+                }
+            } catch (error) {
+                console.log('⚠️  Could not load historical data:', error.message);
+                console.log('   Dashboard will work with live data only');
             }
         }
 
@@ -1096,6 +1103,9 @@
 
 
         // Process and display data
+        // Track the initial load state
+        let initialLoad = true;
+
         function processData() {
             if (!allData || allData.length === 0) {
                 alert('No data available');
@@ -1126,14 +1136,52 @@
             // Update tag legend
             updateTagLegend();
 
-            // Apply initial filters
-            applyFilters();
+            // Apply initial filters (on first load, only show last 30 days)
+            if (initialLoad) {
+                applyFiltersWithInitialDateRange();
+                initialLoad = false;
+            } else {
+                applyFilters();
+            }
 
             // Initialize date slider for animation
             initializeDateSlider();
 
             // Fit map to data extent initially
             fitMapToDataExtent();
+        }
+
+        // Apply filters with initial 30-day range
+        function applyFiltersWithInitialDateRange() {
+            const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 86400);
+            
+            // Get all filters
+            const tagFilter = document.getElementById('tagFilter').value;
+            const monthFilter = document.getElementById('monthFilter').value;
+            
+            // Filter data
+            filteredData = allData.filter(item => {
+                // Apply tag filter
+                if (tagFilter && item.tagId !== tagFilter) return false;
+                
+                // Apply month filter if selected
+                if (monthFilter) {
+                    const itemDate = new Date(item.timestamp * 1000);
+                    const itemMonthYear = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`;
+                    if (itemMonthYear !== monthFilter) return false;
+                }
+                
+                // Apply initial 30-day date filter
+                if (item.timestamp < thirtyDaysAgo) return false;
+                
+                return true;
+            });
+            
+            console.log(`📅 Initial view: Showing ${filteredData.length} records from last 30 days`);
+            console.log(`   Full dataset (${allData.length} records) available for slider/filters`);
+            
+            // Update the map
+            updateMarkers();
         }
 
         function updateStatistics() {
