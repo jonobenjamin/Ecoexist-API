@@ -1784,11 +1784,19 @@
             minTimestamp = Math.min(...timestamps);
             maxTimestamp = Math.max(...timestamps);
 
+            console.log(`🔍 Slider Initialization Debug:`);
+            console.log(`   Data points: ${allData.length}`);
+            console.log(`   Min timestamp: ${minTimestamp} = ${new Date(minTimestamp * 1000).toISOString()}`);
+            console.log(`   Max timestamp: ${maxTimestamp} = ${new Date(maxTimestamp * 1000).toISOString()}`);
+
             // Set initial slider position to show last 30 days
             // Slider range will span full dataset
             const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 86400);
             let initialStart = Math.max(thirtyDaysAgo, minTimestamp);
             let initialEnd = maxTimestamp;
+
+            console.log(`   Initial start: ${initialStart} = ${new Date(initialStart * 1000).toISOString()}`);
+            console.log(`   Initial end: ${initialEnd} = ${new Date(initialEnd * 1000).toISOString()}`);
 
             // Initialize current animation range
             currentAnimationStart = initialStart;
