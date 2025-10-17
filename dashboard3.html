@@ -14,6 +14,9 @@
     <!-- Chart.js for additional visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- noUiSlider CSS and JS for range slider -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css" />
+
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -122,10 +125,11 @@
 
         .tag-color {
             display: inline-block;
-            width: 12px;
-            height: 12px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            margin-right: 5px;
+            margin-right: 2.5px;
+            flex-shrink: 0;
         }
 
         /* Login Modal Styles */
@@ -251,23 +255,26 @@
         }
 
 
-        /* Legend styling - horizontal layout */
+        /* Legend styling - vertical layout */
         #tagLegend {
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
+            flex-direction: column;
+            gap: 4px;
         }
 
         #tagLegend .tag-legend {
             margin: 0;
-            padding: 6px 8px;
+            padding: 4px 6px;
             background-color: #f8f9fa;
             border-radius: 4px;
             border: 1px solid #dee2e6;
+            font-size: 0.8em;
+            white-space: nowrap;
             display: flex;
             align-items: center;
-            gap: 5px;
-            white-space: nowrap;
+            justify-content: center;
+            gap: 2.5px;
+            min-height: 20px;
         }
 
         /* Print styles */
@@ -336,7 +343,8 @@
         <nav class="navbar navbar-expand-lg navbar-dark">
             <div class="container">
                 <a class="navbar-brand" href="#">
-                    🦏 AWT Wildlife Tracking Dashboard
+                    <img src="data/ecoexist.jpg" alt="Ecoexist Logo" height="30" class="me-2">
+                    AWT Wildlife Tracking Dashboard
                 </a>
                 <div class="ms-auto d-flex align-items-center">
                     <span class="navbar-text text-white me-3">
@@ -352,29 +360,61 @@
     <div class="container-fluid mt-4">
         <div class="row">
             <!-- Main Map Column -->
-            <div class="col-lg-8">
+            <div class="col-lg-9">
                 <div class="card" id="map-container">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">📍 Animal Movement Map</h5>
+                        <h5 class="mb-0">
+                            📍 Animal Movement Map
+                        </h5>
                         <button class="btn btn-sm btn-outline-secondary" onclick="printMap()">
                             🖨️ Print JPG
                         </button>
                     </div>
-                    <div id="map"></div>
-                    
-                    <!-- Map Legend (inside map block for printing) -->
-                    <div class="card-footer bg-white">
-                        <h6 class="mb-2">🗺️ Map Legend</h6>
-                        <div id="tagLegend"></div>
+                    <!-- Map and Legend Container -->
+                    <div class="d-flex">
+                        <div id="map" style="flex: 1;"></div>
+                        <!-- Map Legend (right side of map) -->
+                        <div class="bg-white border-start" style="width: 100px; padding: 10px;">
+                            <h6 class="mb-2" style="font-size: 0.9em;">Map Legend</h6>
+                            <div id="tagLegend"></div>
+                        </div>
+                    </div>
+
+                    <!-- Time Animation Slider (embedded in map) -->
+                    <div class="card-body border-top">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <label class="form-label mb-1">⏱️ Date Range: <span id="animationDateRange">Loading...</span></label>
+                                <div id="dateSliderContainer" style="padding: 10px 5px;">
+                                    <!-- noUiSlider will be inserted here -->
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-flex gap-1 align-items-center justify-content-end">
+                                    <button class="btn btn-sm btn-custom" id="playButton" onclick="toggleAnimation()">
+                                        ▶️ Play
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="resetAnimation()">
+                                        ⏮️
+                                    </button>
+                                    <select class="form-select form-select-sm" id="animationSpeed" style="width: auto; font-size: 0.8em;">
+                                        <option value="2000">Slow</option>
+                                        <option value="1000" selected>Normal</option>
+                                        <option value="500">Fast</option>
+                                        <option value="200">Very Fast</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Sidebar -->
-            <div class="col-lg-4">
+            <div class="col-lg-3">
                 <!-- Statistics Cards -->
                 <div class="row">
-                    <div class="col-md-6 col-lg-12">
+                    <div class="col-md-6 col-lg-6">
                         <div class="card stats-card">
                             <div class="card-body">
                                 <h6 class="card-title text-muted">Total Animals</h6>
@@ -382,10 +422,10 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 col-lg-12">
+                    <div class="col-md-6 col-lg-6">
                         <div class="card stats-card">
                             <div class="card-body">
-                                <h6 class="card-title text-muted">Total Locations</h6>
+                                <h6 class="card-title text-muted">Number of Fixes</h6>
                                 <h3 class="text-primary mb-0" id="totalLocations">0</h3>
                             </div>
                         </div>
@@ -395,14 +435,6 @@
                             <div class="card-body">
                                 <h6 class="card-title text-muted">Date Range</h6>
                                 <p class="mb-0" id="dateRange">--</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 col-lg-12">
-                        <div class="card stats-card">
-                            <div class="card-body">
-                                <h6 class="card-title text-muted">Last Update</h6>
-                                <p class="mb-0" id="lastUpdate">--</p>
                             </div>
                         </div>
                     </div>
@@ -475,6 +507,8 @@
         </div>
 
 
+        </div>
+
         <!-- Data Download -->
         <div class="row mt-4">
             <div class="col-12">
@@ -491,7 +525,6 @@
                 </div>
             </div>
         </div>
-    </div>
 
         <!-- Loading Overlay -->
         <div id="loadingOverlay" class="loading" style="display: none;">
@@ -511,6 +544,9 @@
 
     <!-- html2canvas for map screenshot -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <!-- noUiSlider JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
 
     <script>
         // Authentication functions
@@ -584,6 +620,15 @@
         let colorIndex = 0;
         let currentViewMode = 'standard';
         let geoJsonLayers = [];
+
+        // Animation variables
+        let dateSlider = null;
+        let animationInterval = null;
+        let isAnimating = false;
+        let minTimestamp = 0;
+        let maxTimestamp = 0;
+        let currentAnimationStart = 0;
+        let currentAnimationEnd = 0;
         const colors = [
             '#2c5530', '#4a7c59', '#6a9d7a', '#8cbe9c',
             '#ff6b35', '#f7931e', '#ffb627', '#ffea00',
@@ -592,21 +637,27 @@
 
         // Initialize map
         function initMap() {
-            map = L.map('map').setView([-25.0, 28.0], 6); // Centered on Southern Africa
+            map = L.map('map', {
+                zoomControl: true,
+                zoomDelta: 0.1,  // Very fine zoom increments (1/10 zoom level)
+                zoomSnap: 0.1,   // Snap to 1/10 zoom levels for 100m precision
+                wheelPxPerZoomLevel: 60  // More sensitive mouse wheel (half the default)
+            }).setView([-25.0, 28.0], 6); // Centered on Southern Africa
 
             // Satellite imagery background
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                attribution: '© Esri',
                 maxZoom: 18,
                 opacity: 0.6  // Apply white overlay directly to satellite layer
             }).addTo(map);
 
-            // Add scale bar (shows both metric and imperial, plus scale ratio)
+            // Add scale bar with more precise measurements
             L.control.scale({
                 position: 'bottomleft',
                 metric: true,
                 imperial: false,
-                maxWidth: 200
+                maxWidth: 200,
+                updateWhenIdle: false
             }).addTo(map);
 
             // Add custom scale ratio display (1:xxx)
@@ -623,12 +674,15 @@
                 div.style.lineHeight = '1.2';
                 div.innerHTML = 'Scale: 1:1,000,000';
                 
-                // Update scale ratio on zoom
-                map.on('zoomend', function() {
+                // Update scale ratio on zoom with forced 100m increments
+                map.on('zoomend moveend', function() {
                     const zoom = map.getZoom();
                     const metersPerPixel = 40075016.686 * Math.abs(Math.cos(map.getCenter().lat * Math.PI / 180)) / Math.pow(2, zoom + 8);
-                    const scale = Math.round(metersPerPixel * 96 / 0.0254); // Convert to map scale
-                    div.innerHTML = 'Scale: 1:' + scale.toLocaleString();
+                    const exactScale = metersPerPixel * 96 / 0.0254;
+
+                    // Force scale to be in exact 100m increments (100, 200, 300, etc.)
+                    const baseScale = Math.round(exactScale / 100) * 100;
+                    div.innerHTML = 'Scale: 1:' + baseScale.toLocaleString();
                 });
                 
                 return div;
@@ -883,71 +937,155 @@
                 .catch(error => console.error('Error loading roads:', error));
         }
 
-        // Load data from GCS (temporarily public for demo)
+        // Load and merge historical + live data
         async function loadData() {
             const loadingOverlay = document.getElementById('loadingOverlay');
             loadingOverlay.style.display = 'flex';
 
             try {
-                // Load from secure Vercel API
-                const apiUrl = 'https://ecoexist-api.vercel.app/api/awt-data';
+                // Load historical data from GCS via API (since bucket is private)
+                let historicalData = [];
+                try {
+                    console.log('Loading historical data from GCS via API...');
+                    // Fetch historical data through the API (you'll need to add this endpoint)
+                    const historicalResponse = await fetch('https://ecoexist-api.vercel.app/api/historical-data', {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': 'Basic ' + btoa('jono:password')
+                        }
+                    });
+                    if (historicalResponse.ok) {
+                        historicalData = await historicalResponse.json();
+                        console.log(`✅ Loaded ${historicalData.length} historical records from GCS via API`);
+                    } else {
+                        console.log('⚠️  Historical data API not available, proceeding with live data only');
+                        console.log('   Make sure to add /api/historical-data endpoint to your Vercel API');
+                    }
+                } catch (historicalError) {
+                    console.log('⚠️  Historical data not available, proceeding with live data only');
+                    console.log('   Error:', historicalError.message);
+                    console.log('   To enable historical data: add API endpoint to serve historical_data.json from GCS');
+                }
 
-                console.log(`Loading data from secure API: ${apiUrl}`);
+                // Load live data from secure Vercel API
+                const apiUrl = 'https://ecoexist-api.vercel.app/api/awt-data';
+                console.log(`Loading live data from secure API: ${apiUrl}`);
 
                 // Create Basic Auth header
                 const authHeader = 'Basic ' + btoa('jono:password');
-                console.log('Auth header:', authHeader);
 
-                console.log('Making fetch request to:', apiUrl);
-                console.log('Auth header value:', authHeader);
-                console.log('Auth header length:', authHeader.length);
-
-                try {
-                    console.log('About to call fetch...');
-                    const response = await fetch(apiUrl, {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': authHeader
-                        }
-                    });
-
-                    console.log('Response received');
-                    console.log('Response status:', response.status);
-                    console.log('Response ok:', response.ok);
-                    console.log('Response status text:', response.statusText);
-                    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.log('Error response body:', errorText);
-                        throw new Error(`Failed to load data from GCS: ${response.status} ${response.statusText} - ${errorText}`);
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': authHeader
                     }
-                    allData = await response.json();
-                    console.log(`Loaded ${allData.length} records from GCS`);
-                    processData();
-                } catch (fetchError) {
-                    console.error('Fetch error:', fetchError);
-                    throw fetchError;
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Failed to load live data from GCS: ${response.status} ${response.statusText} - ${errorText}`);
                 }
 
+                const liveData = await response.json();
+                console.log(`✅ Loaded ${liveData.length} live records from GCS`);
+
+                // Merge historical and live data
+                allData = mergeHistoricalAndLiveData(historicalData, liveData);
+                console.log(`🔄 Merged total: ${allData.length} records (${historicalData.length} historical + ${liveData.length} live)`);
+
+                processData();
+
             } catch (error) {
-                console.error('Error loading data:', error);
-                console.error('Response status:', error.status);
-                
+                console.error('❌ Error loading data:', error);
+
                 let errorMsg = `Failed to load wildlife tracking data: ${error.message}\n\n`;
-                
+
                 if (error.message.includes('401')) {
                     errorMsg += 'Authentication Error (401):\n- The API credentials may not match\n- Check if Vercel deployment is up to date';
                 } else {
-                    errorMsg += 'Please ensure:\n1. Vercel API URL is correct\n2. Environment variables are set in Vercel\n3. API is properly deployed';
+                    errorMsg += 'Please ensure:\n1. Vercel API URL is correct\n2. Environment variables are set in Vercel\n3. API is properly deployed\n4. historical_data.json exists (if using historical data)';
                 }
-                
+
                 alert(errorMsg);
                 allData = []; // Set empty array so UI shows no data
                 processData();
             } finally {
                 loadingOverlay.style.display = 'none';
             }
+        }
+
+        // Merge historical and live data, handling overlaps
+        function mergeHistoricalAndLiveData(historicalData, liveData) {
+            if (!historicalData || historicalData.length === 0) {
+                console.log('No historical data to merge, using live data only');
+                return liveData || [];
+            }
+            if (!liveData || liveData.length === 0) {
+                console.log('No live data to merge, using historical data only');
+                return historicalData || [];
+            }
+
+            console.log('🔄 Merging historical and live data...');
+
+            // Create maps for efficient lookup by tag and date
+            const liveDataMap = new Map();
+            const historicalDataMap = new Map();
+
+            // Group live data by tagId and date (rounded to day)
+            liveData.forEach(record => {
+                const tagId = record.tagId;
+                const dateKey = new Date(record.timestamp * 1000).toDateString();
+
+                if (!liveDataMap.has(tagId)) {
+                    liveDataMap.set(tagId, new Map());
+                }
+                liveDataMap.get(tagId).set(dateKey, record);
+            });
+
+            // Group historical data by tagId and date
+            historicalData.forEach(record => {
+                const tagId = record.tagId;
+                const dateKey = new Date(record.timestamp * 1000).toDateString();
+
+                if (!historicalDataMap.has(tagId)) {
+                    historicalDataMap.set(tagId, new Map());
+                }
+                historicalDataMap.get(tagId).set(dateKey, record);
+            });
+
+            // Merge data: prefer live data for overlapping dates, include all historical data
+            const mergedData = [];
+
+            // Add all live data (these are the most recent and authoritative)
+            liveData.forEach(record => {
+                mergedData.push(record);
+            });
+
+            // Add historical data only for dates/tags not covered by live data
+            let historicalAdded = 0;
+            historicalData.forEach(record => {
+                const tagId = record.tagId;
+                const dateKey = new Date(record.timestamp * 1000).toDateString();
+
+                // Check if we already have live data for this tag and date
+                const hasLiveData = liveDataMap.has(tagId) && liveDataMap.get(tagId).has(dateKey);
+
+                if (!hasLiveData) {
+                    mergedData.push(record);
+                    historicalAdded++;
+                }
+            });
+
+            console.log(`📊 Merge results:`);
+            console.log(`   - Live data: ${liveData.length} records`);
+            console.log(`   - Historical data added: ${historicalAdded} records`);
+            console.log(`   - Overlapping dates removed: ${historicalData.length - historicalAdded} records`);
+            console.log(`   - Total merged: ${mergedData.length} records`);
+
+            // Sort merged data by timestamp for proper chronological display
+            mergedData.sort((a, b) => a.timestamp - b.timestamp);
+
+            return mergedData;
         }
 
 
@@ -985,6 +1123,9 @@
             // Apply initial filters
             applyFilters();
 
+            // Initialize date slider for animation
+            initializeDateSlider();
+
             // Fit map to data extent initially
             fitMapToDataExtent();
         }
@@ -1001,7 +1142,6 @@
 
             document.getElementById('dateRange').textContent =
                 `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
-            document.getElementById('lastUpdate').textContent = maxDate.toLocaleString();
         }
 
         function populateTagFilter() {
@@ -1494,6 +1634,150 @@
                 `;
                 tbody.appendChild(row);
             });
+        }
+
+        // ==================== ANIMATION FUNCTIONS ====================
+
+        function initializeDateSlider() {
+            if (!allData || allData.length === 0) return;
+
+            // Get timestamp range from all data
+            const timestamps = allData.map(d => d.timestamp);
+            minTimestamp = Math.min(...timestamps);
+            maxTimestamp = Math.max(...timestamps);
+
+            // Initialize slider range to full dataset
+            currentAnimationStart = minTimestamp;
+            currentAnimationEnd = maxTimestamp;
+
+            const sliderContainer = document.getElementById('dateSliderContainer');
+            sliderContainer.innerHTML = ''; // Clear any existing slider
+
+            // Create slider
+            dateSlider = noUiSlider.create(sliderContainer, {
+                start: [minTimestamp, maxTimestamp],
+                connect: true,
+                range: {
+                    'min': minTimestamp,
+                    'max': maxTimestamp
+                },
+                step: 86400, // 1 day in seconds
+                format: {
+                    to: function(value) {
+                        return Math.round(value);
+                    },
+                    from: function(value) {
+                        return Number(value);
+                    }
+                }
+            });
+
+            // Update display and map when slider changes
+            dateSlider.on('update', function(values) {
+                currentAnimationStart = parseInt(values[0]);
+                currentAnimationEnd = parseInt(values[1]);
+                updateAnimationDateRange();
+                updateMapWithDateRange();
+            });
+
+            updateAnimationDateRange();
+        }
+
+        function updateAnimationDateRange() {
+            const startDate = new Date(currentAnimationStart * 1000).toLocaleDateString();
+            const endDate = new Date(currentAnimationEnd * 1000).toLocaleDateString();
+            document.getElementById('animationDateRange').textContent = `${startDate} - ${endDate}`;
+        }
+
+        function updateMapWithDateRange() {
+            // Filter data by current date range
+            filteredData = allData.filter(item => {
+                const tagFilterValue = document.getElementById('tagFilter').value;
+
+                // Tag filter
+                if (tagFilterValue && item.tagId != tagFilterValue) {
+                    return false;
+                }
+
+                // Date range filter
+                return item.timestamp >= currentAnimationStart && item.timestamp <= currentAnimationEnd;
+            });
+
+            updateMap();
+        }
+
+        function toggleAnimation() {
+            if (isAnimating) {
+                stopAnimation();
+            } else {
+                startAnimation();
+            }
+        }
+
+        function startAnimation() {
+            isAnimating = true;
+            document.getElementById('playButton').innerHTML = '⏸️ Pause';
+
+            const speed = parseInt(document.getElementById('animationSpeed').value);
+            const dayStep = 86400; // 1 day in seconds
+            const windowSize = 7 * dayStep; // Show 7 days at a time
+
+            // Always start animation from current slider position with a 7-day window
+            // If the current window is larger than 7 days, center it on the current position
+            const currentCenter = (currentAnimationStart + currentAnimationEnd) / 2;
+            const halfWindow = windowSize / 2;
+
+            currentAnimationStart = Math.max(minTimestamp, currentCenter - halfWindow);
+            currentAnimationEnd = Math.min(maxTimestamp, currentAnimationStart + windowSize);
+
+            // Adjust start if we're too close to the end
+            if (currentAnimationEnd > maxTimestamp) {
+                currentAnimationEnd = maxTimestamp;
+                currentAnimationStart = Math.max(minTimestamp, maxTimestamp - windowSize);
+            }
+
+            // Update slider to match the animation window
+            if (dateSlider) {
+                dateSlider.set([currentAnimationStart, currentAnimationEnd]);
+            }
+
+            animationInterval = setInterval(() => {
+                // Move window forward by 1 day
+                currentAnimationStart += dayStep;
+                currentAnimationEnd += dayStep;
+
+                // Stop if we've reached the end
+                if (currentAnimationEnd > maxTimestamp) {
+                    currentAnimationEnd = maxTimestamp;
+                    stopAnimation();
+                    return;
+                }
+
+                // Update slider
+                if (dateSlider) {
+                    dateSlider.set([currentAnimationStart, currentAnimationEnd]);
+                }
+
+            }, speed);
+        }
+
+        function stopAnimation() {
+            isAnimating = false;
+            document.getElementById('playButton').innerHTML = '▶️ Play';
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
+        }
+
+        function resetAnimation() {
+            stopAnimation();
+            currentAnimationStart = minTimestamp;
+            currentAnimationEnd = maxTimestamp;
+
+            if (dateSlider) {
+                dateSlider.set([minTimestamp, maxTimestamp]);
+            }
         }
 
         function exportData() {
