@@ -1377,6 +1377,21 @@
             const dateFrom = document.getElementById('dateFrom').value;
             const dateTo = document.getElementById('dateTo').value;
 
+            // If date filters are set, update the slider to match
+            if (dateFrom || dateTo) {
+                const fromTimestamp = dateFrom ? new Date(dateFrom).getTime() / 1000 : minTimestamp;
+                const toTimestamp = dateTo ? new Date(dateTo).getTime() / 1000 : maxTimestamp;
+                
+                currentAnimationStart = fromTimestamp;
+                currentAnimationEnd = toTimestamp;
+                
+                if (dateSlider) {
+                    dateSlider.set([fromTimestamp, toTimestamp]);
+                }
+                
+                updateAnimationDateRange();
+            }
+
             filteredData = allData.filter(item => {
                 // Tag filter
                 if (tagFilter && item.tagId != tagFilter) {
