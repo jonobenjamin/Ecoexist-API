@@ -2071,8 +2071,9 @@
             loadingOverlay.style.display = 'flex';
             loadingOverlay.querySelector('p').textContent = 'Creating map image...';
 
-            // Capture just the map element (not the container with legend)
+            // Capture the entire map area including legend (the d-flex container)
             const mapElement = document.getElementById('map');
+            const mapArea = mapElement.parentElement; // Get the .d-flex parent that contains both map and legend
 
             // Temporarily remove opacity from satellite layer for clean capture
             const tileLayers = mapElement.querySelectorAll('.leaflet-tile-pane img');
@@ -2089,15 +2090,15 @@
             // Wait for tiles to load and map to stabilize
             setTimeout(() => {
                 // Use dom-to-image for better Leaflet map capture
-                domtoimage.toJpeg(mapElement, {
+                domtoimage.toJpeg(mapArea, {
                     quality: 0.95,
-                    width: mapElement.offsetWidth,
-                    height: mapElement.offsetHeight,
+                    width: mapArea.offsetWidth,
+                    height: mapArea.offsetHeight,
                     style: {
                         'transform-origin': 'top left'
                     },
                     filter: (element) => {
-                        // Skip controls, popups, and tooltips
+                        // Skip controls and popups, but keep legend
                         return !element.classList.contains('leaflet-control') &&
                                !element.classList.contains('leaflet-popup') &&
                                !element.classList.contains('leaflet-tooltip');
