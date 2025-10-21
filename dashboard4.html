@@ -2071,103 +2071,9 @@
             loadingOverlay.style.display = 'flex';
             loadingOverlay.querySelector('p').textContent = 'Creating map image...';
 
-            // Create a temporary capture container that includes heading above map
+            // Capture just the map area (the working solution)
             const mapElement = document.getElementById('map');
             const mapArea = mapElement.parentElement; // Get the .d-flex parent that contains both map and legend
-            const mapContainer = mapArea.parentElement; // Get the card container
-
-            // Create temporary capture wrapper
-            const captureWrapper = document.createElement('div');
-            captureWrapper.id = 'capture-wrapper';
-            captureWrapper.style.cssText = `
-                position: absolute;
-                top: -10000px;
-                left: -10000px;
-                background: white;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                padding: 20px;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            `;
-
-            // Create and add centered heading
-            const headingDiv = document.createElement('div');
-            headingDiv.id = 'capture-heading';
-            headingDiv.style.cssText = `
-                background: rgba(255, 255, 255, 0.95);
-                padding: 12px 20px;
-                border-radius: 6px;
-                font-size: 16px;
-                font-weight: bold;
-                color: #2c5530;
-                border: 3px solid #2c5530;
-                margin-bottom: 15px;
-                text-align: center;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-                max-width: ${mapArea.offsetWidth}px;
-            `;
-
-            // Build heading text
-            let headingText = '';
-
-            // Get view mode
-            const viewModeMap = {
-                'standard': 'Standard Map',
-                'current-historic': 'Current vs Historic Map',
-                'day-night': 'Day vs Night Map',
-                'home-range': 'Home Range Map',
-                'speed-map': 'Speed Map'
-            };
-            headingText += viewModeMap[currentViewMode] || 'Map';
-
-            // Get animal info
-            const tagFilter = document.getElementById('tagFilter').value;
-            if (tagFilter) {
-                headingText += ` for Elephant ${tagFilter}`;
-            } else {
-                headingText += ' for All Elephants';
-            }
-
-            // Get date range
-            let dateRangeText = '';
-            if (filteredData && filteredData.length > 0) {
-                let minDate = filteredData[0].timestamp;
-                let maxDate = filteredData[0].timestamp;
-
-                for (let i = 1; i < filteredData.length; i++) {
-                    const ts = filteredData[i].timestamp;
-                    if (ts < minDate) minDate = ts;
-                    if (ts > maxDate) maxDate = ts;
-                }
-
-                const startDate = new Date(minDate * 1000);
-                const endDate = new Date(maxDate * 1000);
-
-                const formatDate = (date) => {
-                    const day = String(date.getDate()).padStart(2, '0');
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const year = date.getFullYear();
-                    return `${day}/${month}/${year}`;
-                };
-
-                dateRangeText = ` ${formatDate(startDate)} - ${formatDate(endDate)}`;
-            }
-
-            headingText += dateRangeText;
-            headingDiv.textContent = headingText;
-
-            // Temporarily move the actual map area to the capture wrapper
-            // Store original parent for restoration
-            const originalParent = mapArea.parentElement;
-
-            // Add heading and actual map to wrapper (don't clone - preserve Leaflet instance)
-            captureWrapper.appendChild(headingDiv);
-            captureWrapper.appendChild(mapArea);
-
-            // Add wrapper to document temporarily
-            document.body.appendChild(captureWrapper);
 
             // Temporarily remove opacity from satellite layer for clean capture
             const tileLayers = mapElement.querySelectorAll('.leaflet-tile-pane img');
@@ -2183,10 +2089,15 @@
 
             // Wait for tiles to load and map to stabilize
             setTimeout(() => {
-                // Use dom-to-image to capture the complete wrapper (heading + map)
-                domtoimage.toJpeg(captureWrapper, {
+                // Use dom-to-image for better Leaflet map capture
+                domtoimage.toJpeg(mapArea, {
                     quality: 0.95,
-                    bgcolor: '#ffffff'
+                    width: mapArea.offsetWidth,
+                    height: mapArea.offsetHeight,
+                    style: {
+                        'transform-origin': 'top left',
+                        'background-color': '#ffffff'
+                    }
                 }).then(dataUrl => {
                     // Download the JPG directly
                     const link = document.createElement('a');
@@ -2200,22 +2111,6 @@
                     });
                     controls.forEach(control => control.style.display = '');
 
-                    // Restore map area to original position
-                    if (originalParent && originalParent.contains(mapArea)) {
-                        // Map area is already back, just remove wrapper
-                        const tempWrapper = document.getElementById('capture-wrapper');
-                        if (tempWrapper) {
-                            tempWrapper.remove();
-                        }
-                    } else {
-                        // Move map area back to original parent
-                        originalParent.appendChild(mapArea);
-                        const tempWrapper = document.getElementById('capture-wrapper');
-                        if (tempWrapper) {
-                            tempWrapper.remove();
-                        }
-                    }
-
                     // Hide loading
                     loadingOverlay.style.display = 'none';
                     loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
@@ -2227,22 +2122,6 @@
                         img.style.opacity = originalOpacities[index];
                     });
                     controls.forEach(control => control.style.display = '');
-
-                    // Restore map area to original position
-                    if (originalParent && originalParent.contains(mapArea)) {
-                        // Map area is already back, just remove wrapper
-                        const tempWrapper = document.getElementById('capture-wrapper');
-                        if (tempWrapper) {
-                            tempWrapper.remove();
-                        }
-                    } else {
-                        // Move map area back to original parent
-                        originalParent.appendChild(mapArea);
-                        const tempWrapper = document.getElementById('capture-wrapper');
-                        if (tempWrapper) {
-                            tempWrapper.remove();
-                        }
-                    }
 
                     alert('Error creating map image. Please try again.');
                     loadingOverlay.style.display = 'none';
