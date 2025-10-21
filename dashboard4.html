@@ -2071,15 +2071,11 @@
             loadingOverlay.style.display = 'flex';
             loadingOverlay.querySelector('p').textContent = 'Creating map image...';
 
-            // Capture the entire map area including legend (the d-flex container that holds map + legend)
+            // Capture just the map element (not the container with legend)
             const mapElement = document.getElementById('map');
-            const mapArea = mapElement.parentElement; // Get the .d-flex parent that contains both map and legend
-
-            // Force map redraw to ensure proper positioning
-            map.invalidateSize();
 
             // Temporarily remove opacity from satellite layer for clean capture
-            const tileLayers = mapArea.querySelectorAll('.leaflet-tile-pane img');
+            const tileLayers = mapElement.querySelectorAll('.leaflet-tile-pane img');
             const originalOpacities = [];
             tileLayers.forEach(img => {
                 originalOpacities.push(img.style.opacity);
@@ -2087,30 +2083,28 @@
             });
 
             // Hide controls temporarily
-            const controls = mapArea.querySelectorAll('.leaflet-control');
+            const controls = mapElement.querySelectorAll('.leaflet-control');
             controls.forEach(control => control.style.display = 'none');
 
-            // Wait longer for map to fully redraw and stabilize
+            // Wait for tiles to load and map to stabilize
             setTimeout(() => {
-                // Use html2canvas to capture the entire map area (map + legend)
-                html2canvas(mapArea, {
+                // Use html2canvas to capture only the map (simpler, more reliable)
+                html2canvas(mapElement, {
                     scale: 2,
                     useCORS: true,
                     allowTaint: false,
                     logging: false,
-                    width: mapArea.offsetWidth,
-                    height: mapArea.offsetHeight,
+                    width: mapElement.offsetWidth,
+                    height: mapElement.offsetHeight,
                     x: 0,
                     y: 0,
                     scrollX: 0,
                     scrollY: 0,
                     backgroundColor: '#ffffff',
-                    // Better handling of transforms and positioning
-                    foreignObjectRendering: true,
-                    removeContainer: false,
-                    // Only skip popups and tooltips, keep legend
+                    // Skip popups and tooltips
                     ignoreElements: (element) => {
-                        return element.classList.contains('leaflet-popup') ||
+                        return element.classList.contains('leaflet-control') ||
+                               element.classList.contains('leaflet-popup') ||
                                element.classList.contains('leaflet-tooltip');
                     }
                 }).then(canvas => {
@@ -2142,7 +2136,7 @@
                     loadingOverlay.style.display = 'none';
                     loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
                 });
-            }, 2000); // Wait 2 seconds for map to fully redraw and stabilize
+            }, 1500); // Wait 1.5 seconds for map to stabilize
         }
 
         // Initialize when page loads
