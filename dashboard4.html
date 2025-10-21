@@ -2071,8 +2071,9 @@
             loadingOverlay.style.display = 'flex';
             loadingOverlay.querySelector('p').textContent = 'Creating map image...';
 
-            // Capture the entire map area including legend (the d-flex container)
-            const mapArea = document.querySelector('#map-container .d-flex');
+            // Capture the entire map area including legend (the d-flex container that holds map + legend)
+            const mapElement = document.getElementById('map');
+            const mapArea = mapElement.parentElement; // Get the .d-flex parent that contains both map and legend
 
             // Temporarily remove opacity from satellite layer for clean capture
             const tileLayers = mapArea.querySelectorAll('.leaflet-tile-pane img');
