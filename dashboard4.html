@@ -2194,22 +2194,59 @@
                     loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
                 }).catch(error => {
                     console.error('Error capturing map:', error);
-
-                    // Restore original state even on error
-                    tileLayers.forEach((img, index) => {
-                        img.style.opacity = originalOpacities[index];
+                    console.error('Error details:', {
+                        message: error.message,
+                        stack: error.stack,
+                        name: error.name
                     });
-                    controls.forEach(control => control.style.display = '');
 
-                    // Remove the temporary ribbon
-                    const tempRibbon = document.getElementById('temp-ribbon');
-                    if (tempRibbon) {
-                        tempRibbon.remove();
-                    }
+                    // Try alternative capture method
+                    console.log('Attempting alternative capture method...');
+                    // Fallback to canvas capture
+                    html2canvas(mapContainer, {
+                        scale: 1,
+                        useCORS: true,
+                        allowTaint: false,
+                        backgroundColor: '#ffffff',
+                        ignoreElements: (element) => {
+                            return element.classList.contains('leaflet-control') ||
+                                   element.classList.contains('leaflet-popup') ||
+                                   element.classList.contains('leaflet-tooltip');
+                        }
+                    }).then(canvas => {
+                        const link = document.createElement('a');
+                        link.download = `awt-map-fallback-${new Date().toISOString().split('T')[0]}.jpg`;
+                        link.href = canvas.toDataURL('image/jpeg', 0.8);
+                        link.click();
 
-                    alert('Error creating map image. Please try again.');
-                    loadingOverlay.style.display = 'none';
-                    loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
+                        // Restore state and cleanup
+                        tileLayers.forEach((img, index) => {
+                            img.style.opacity = originalOpacities[index];
+                        });
+                        controls.forEach(control => control.style.display = '');
+                        const tempRibbon = document.getElementById('temp-ribbon');
+                        if (tempRibbon) tempRibbon.remove();
+                        loadingOverlay.style.display = 'none';
+                        loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
+                    }).catch(fallbackError => {
+                        console.error('Fallback capture also failed:', fallbackError);
+
+                        // Restore original state even on error
+                        tileLayers.forEach((img, index) => {
+                            img.style.opacity = originalOpacities[index];
+                        });
+                        controls.forEach(control => control.style.display = '');
+
+                        // Remove the temporary ribbon
+                        const tempRibbon = document.getElementById('temp-ribbon');
+                        if (tempRibbon) {
+                            tempRibbon.remove();
+                        }
+
+                        alert('Error creating map image. Please try again.');
+                        loadingOverlay.style.display = 'none';
+                        loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
+                    });
                 });
             }, 2000); // Wait 2 seconds for map to stabilize
         }
