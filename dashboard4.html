@@ -542,8 +542,8 @@
     <!-- Turf.js for convex hull calculations -->
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
-    <!-- html2canvas for map screenshot -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- dom-to-image for map screenshot (better for complex content like Leaflet maps) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
 
     <!-- noUiSlider JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
@@ -2088,45 +2088,25 @@
 
             // Wait for tiles to load and map to stabilize
             setTimeout(() => {
-                // Force a synchronous map render before capturing
-                map._renderer._update();
-
-                // Use html2canvas with better transform handling
-                html2canvas(mapElement, {
-                    scale: window.devicePixelRatio || 2,
-                    useCORS: true,
-                    allowTaint: false,
-                    logging: false,
+                // Use dom-to-image for better Leaflet map capture
+                domtoimage.toJpeg(mapElement, {
+                    quality: 0.95,
                     width: mapElement.offsetWidth,
                     height: mapElement.offsetHeight,
-                    x: 0,
-                    y: 0,
-                    scrollX: window.pageXOffset,
-                    scrollY: window.pageYOffset,
-                    backgroundColor: '#ffffff',
-                    // Better transform handling for Leaflet
-                    letterRendering: true,
-                    allowTaint: false,
-                    // Skip popups and tooltips
-                    ignoreElements: (element) => {
-                        return element.classList.contains('leaflet-control') ||
-                               element.classList.contains('leaflet-popup') ||
-                               element.classList.contains('leaflet-tooltip');
+                    style: {
+                        'transform-origin': 'top left'
                     },
-                    // Force synchronous rendering
-                    onclone: (clonedDoc) => {
-                        // Ensure cloned map renders correctly
-                        const clonedMap = clonedDoc.getElementById('map');
-                        if (clonedMap) {
-                            clonedMap.style.width = mapElement.offsetWidth + 'px';
-                            clonedMap.style.height = mapElement.offsetHeight + 'px';
-                        }
+                    filter: (element) => {
+                        // Skip controls, popups, and tooltips
+                        return !element.classList.contains('leaflet-control') &&
+                               !element.classList.contains('leaflet-popup') &&
+                               !element.classList.contains('leaflet-tooltip');
                     }
-                }).then(canvas => {
-                    // Convert to JPG and download
+                }).then(dataUrl => {
+                    // Download the JPG directly
                     const link = document.createElement('a');
                     link.download = `awt-map-${new Date().toISOString().split('T')[0]}.jpg`;
-                    link.href = canvas.toDataURL('image/jpeg', 0.95);
+                    link.href = dataUrl;
                     link.click();
 
                     // Restore original state
@@ -2151,7 +2131,7 @@
                     loadingOverlay.style.display = 'none';
                     loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
                 });
-            }, 1500); // Wait 1.5 seconds for map to stabilize
+            }, 2000); // Wait 2 seconds for map to stabilize
         }
 
         // Initialize when page loads
