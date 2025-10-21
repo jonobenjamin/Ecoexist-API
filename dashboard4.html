@@ -2071,21 +2071,30 @@
             loadingOverlay.style.display = 'flex';
             loadingOverlay.querySelector('p').textContent = 'Creating map image...';
 
-            // Add temporary white ribbon above the map for capture
+            // Create a minimal capture container off-screen
             const mapElement = document.getElementById('map');
             const mapArea = mapElement.parentElement; // Get the .d-flex parent that contains both map and legend
-            const mapContainer = mapArea.parentElement; // Get the card container
 
-            // Create white ribbon and temporarily add it above the map
+            // Create minimal capture container
+            const captureContainer = document.createElement('div');
+            captureContainer.style.cssText = `
+                position: absolute;
+                top: -10000px;
+                left: -10000px;
+                background: white;
+                display: flex;
+                flex-direction: column;
+                width: ${mapArea.offsetWidth}px;
+            `;
+
+            // Create white ribbon
             const ribbonDiv = document.createElement('div');
-            ribbonDiv.id = 'temp-ribbon';
             ribbonDiv.style.cssText = `
                 background: white;
                 padding: 15px 20px;
                 border-bottom: 2px solid #2c5530;
                 text-align: center;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                margin-bottom: 0;
+                width: 100%;
             `;
 
             // Create heading text
@@ -2094,7 +2103,6 @@
                 font-size: 18px;
                 font-weight: bold;
                 color: #2c5530;
-                margin-bottom: 5px;
             `;
 
             // Build heading text
@@ -2149,8 +2157,31 @@
             // Add heading to ribbon
             ribbonDiv.appendChild(headingDiv);
 
-            // Temporarily add ribbon above the map container
-            mapContainer.insertBefore(ribbonDiv, mapArea);
+            // Clone just the essential map content
+            const mapClone = mapElement.cloneNode(true);
+            const legendClone = mapArea.querySelector('.bg-white.border-start').cloneNode(true);
+
+            // Style the cloned elements
+            mapClone.style.width = mapElement.offsetWidth + 'px';
+            mapClone.style.height = mapElement.offsetHeight + 'px';
+            legendClone.style.width = '100px';
+            legendClone.style.flexShrink = '0';
+
+            // Create map container for cloned elements
+            const mapRow = document.createElement('div');
+            mapRow.style.cssText = `
+                display: flex;
+                width: 100%;
+            `;
+            mapRow.appendChild(mapClone);
+            mapRow.appendChild(legendClone);
+
+            // Add to capture container
+            captureContainer.appendChild(ribbonDiv);
+            captureContainer.appendChild(mapRow);
+
+            // Add to document temporarily
+            document.body.appendChild(captureContainer);
 
             // Temporarily remove opacity from satellite layer for clean capture
             const tileLayers = mapElement.querySelectorAll('.leaflet-tile-pane img');
@@ -2166,8 +2197,8 @@
 
             // Wait for tiles to load and map to stabilize
             setTimeout(() => {
-                // Use dom-to-image to capture the map container (ribbon + map)
-                domtoimage.toJpeg(mapContainer, {
+                // Use dom-to-image to capture the minimal container (ribbon + cloned map)
+                domtoimage.toJpeg(captureContainer, {
                     quality: 0.95,
                     bgcolor: '#ffffff'
                 }).then(dataUrl => {
@@ -2183,10 +2214,9 @@
                     });
                     controls.forEach(control => control.style.display = '');
 
-                    // Remove the temporary ribbon
-                    const tempRibbon = document.getElementById('temp-ribbon');
-                    if (tempRibbon) {
-                        tempRibbon.remove();
+                    // Remove the temporary capture container
+                    if (captureContainer && captureContainer.parentNode) {
+                        captureContainer.parentNode.removeChild(captureContainer);
                     }
 
                     // Hide loading
@@ -2203,7 +2233,7 @@
                     // Try alternative capture method
                     console.log('Attempting alternative capture method...');
                     // Fallback to canvas capture
-                    html2canvas(mapContainer, {
+                    html2canvas(captureContainer, {
                         scale: 1,
                         useCORS: true,
                         allowTaint: false,
@@ -2224,8 +2254,9 @@
                             img.style.opacity = originalOpacities[index];
                         });
                         controls.forEach(control => control.style.display = '');
-                        const tempRibbon = document.getElementById('temp-ribbon');
-                        if (tempRibbon) tempRibbon.remove();
+                        if (captureContainer && captureContainer.parentNode) {
+                            captureContainer.parentNode.removeChild(captureContainer);
+                        }
                         loadingOverlay.style.display = 'none';
                         loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
                     }).catch(fallbackError => {
@@ -2237,10 +2268,9 @@
                         });
                         controls.forEach(control => control.style.display = '');
 
-                        // Remove the temporary ribbon
-                        const tempRibbon = document.getElementById('temp-ribbon');
-                        if (tempRibbon) {
-                            tempRibbon.remove();
+                        // Remove the temporary capture container
+                        if (captureContainer && captureContainer.parentNode) {
+                            captureContainer.parentNode.removeChild(captureContainer);
                         }
 
                         alert('Error creating map image. Please try again.');
