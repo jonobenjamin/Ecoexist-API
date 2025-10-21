@@ -2089,19 +2089,19 @@
 
             // Wait for tiles to load and map to stabilize
             setTimeout(() => {
+                // Debug: Check what's in the map area
+                console.log('Map area to capture:', mapArea);
+                console.log('Map area children:', mapArea.children);
+                console.log('Legend element:', document.getElementById('tagLegend'));
+
                 // Use dom-to-image for better Leaflet map capture
                 domtoimage.toJpeg(mapArea, {
                     quality: 0.95,
                     width: mapArea.offsetWidth,
                     height: mapArea.offsetHeight,
                     style: {
-                        'transform-origin': 'top left'
-                    },
-                    filter: (element) => {
-                        // Skip controls and popups, but keep legend
-                        return !element.classList.contains('leaflet-control') &&
-                               !element.classList.contains('leaflet-popup') &&
-                               !element.classList.contains('leaflet-tooltip');
+                        'transform-origin': 'top left',
+                        'background-color': '#ffffff'
                     }
                 }).then(dataUrl => {
                     // Download the JPG directly
