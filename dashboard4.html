@@ -2075,6 +2075,77 @@
             const mapElement = document.getElementById('map');
             const mapArea = mapElement.parentElement; // Get the .d-flex parent that contains both map and legend
 
+            // Create and add heading overlay
+            const headingDiv = document.createElement('div');
+            headingDiv.id = 'capture-heading';
+            headingDiv.style.cssText = `
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                background: rgba(255, 255, 255, 0.9);
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-size: 14px;
+                font-weight: bold;
+                color: #2c5530;
+                border: 2px solid #2c5530;
+                z-index: 1000;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            `;
+
+            // Build heading text
+            let headingText = '';
+
+            // Get view mode
+            const viewModeMap = {
+                'standard': 'Standard Map',
+                'current-historic': 'Current vs Historic Map',
+                'day-night': 'Day vs Night Map',
+                'home-range': 'Home Range Map',
+                'speed-map': 'Speed Map'
+            };
+            headingText += viewModeMap[currentViewMode] || 'Map';
+
+            // Get animal info
+            const tagFilter = document.getElementById('tagFilter').value;
+            if (tagFilter) {
+                headingText += ` for Elephant ${tagFilter}`;
+            } else {
+                headingText += ' for All Elephants';
+            }
+
+            // Get date range
+            let dateRangeText = '';
+            if (filteredData && filteredData.length > 0) {
+                let minDate = filteredData[0].timestamp;
+                let maxDate = filteredData[0].timestamp;
+
+                for (let i = 1; i < filteredData.length; i++) {
+                    const ts = filteredData[i].timestamp;
+                    if (ts < minDate) minDate = ts;
+                    if (ts > maxDate) maxDate = ts;
+                }
+
+                const startDate = new Date(minDate * 1000);
+                const endDate = new Date(maxDate * 1000);
+
+                const formatDate = (date) => {
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear();
+                    return `${day}/${month}/${year}`;
+                };
+
+                dateRangeText = ` ${formatDate(startDate)} - ${formatDate(endDate)}`;
+            }
+
+            headingText += dateRangeText;
+            headingDiv.textContent = headingText;
+
+            // Add heading to map area
+            mapArea.style.position = 'relative'; // Ensure positioning context
+            mapArea.appendChild(headingDiv);
+
             // Temporarily remove opacity from satellite layer for clean capture
             const tileLayers = mapElement.querySelectorAll('.leaflet-tile-pane img');
             const originalOpacities = [];
@@ -2089,11 +2160,6 @@
 
             // Wait for tiles to load and map to stabilize
             setTimeout(() => {
-                // Debug: Check what's in the map area
-                console.log('Map area to capture:', mapArea);
-                console.log('Map area children:', mapArea.children);
-                console.log('Legend element:', document.getElementById('tagLegend'));
-
                 // Use dom-to-image for better Leaflet map capture
                 domtoimage.toJpeg(mapArea, {
                     quality: 0.95,
@@ -2116,6 +2182,12 @@
                     });
                     controls.forEach(control => control.style.display = '');
 
+                    // Remove the temporary heading
+                    const tempHeading = document.getElementById('capture-heading');
+                    if (tempHeading) {
+                        tempHeading.remove();
+                    }
+
                     // Hide loading
                     loadingOverlay.style.display = 'none';
                     loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
@@ -2127,6 +2199,12 @@
                         img.style.opacity = originalOpacities[index];
                     });
                     controls.forEach(control => control.style.display = '');
+
+                    // Remove the temporary heading
+                    const tempHeading = document.getElementById('capture-heading');
+                    if (tempHeading) {
+                        tempHeading.remove();
+                    }
 
                     alert('Error creating map image. Please try again.');
                     loadingOverlay.style.display = 'none';
