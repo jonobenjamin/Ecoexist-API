@@ -483,8 +483,8 @@
 
                         <div class="mb-3" id="monthFilterContainer" style="display: none;">
                             <label for="monthFilter" class="form-label">Month/Year</label>
-                            <select class="form-select" id="monthFilter">
-                                <option value="">Current Month</option>
+                            <select class="form-select" id="monthFilter" onchange="handleMonthFilterChange()">
+                                <option value="">All Months</option>
                             </select>
                         </div>
 
@@ -937,75 +937,230 @@
                 .catch(error => console.error('Error loading roads:', error));
         }
 
-        // Load data from GCS (temporarily public for demo)
+        // Load and merge historical + live data
         async function loadData() {
             const loadingOverlay = document.getElementById('loadingOverlay');
             loadingOverlay.style.display = 'flex';
 
             try {
-                // Load from secure Vercel API
+                // Load live data (last 90 days) from secure Vercel API
                 const apiUrl = 'https://ecoexist-api.vercel.app/api/awt-data';
-
-                console.log(`Loading data from secure API: ${apiUrl}`);
+                console.log(`📊 Loading live data (last 90 days): ${apiUrl}`);
 
                 // Create Basic Auth header
                 const authHeader = 'Basic ' + btoa('jono:password');
-                console.log('Auth header:', authHeader);
 
-                console.log('Making fetch request to:', apiUrl);
-                console.log('Auth header value:', authHeader);
-                console.log('Auth header length:', authHeader.length);
+                // Add timeout to prevent hanging
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-                try {
-                    console.log('About to call fetch...');
-                    const response = await fetch(apiUrl, {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': authHeader
-                        }
-                    });
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': authHeader
+                    },
+                    signal: controller.signal
+                });
 
-                    console.log('Response received');
-                    console.log('Response status:', response.status);
-                    console.log('Response ok:', response.ok);
-                    console.log('Response status text:', response.statusText);
-                    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                clearTimeout(timeoutId);
 
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.log('Error response body:', errorText);
-                        throw new Error(`Failed to load data from GCS: ${response.status} ${response.statusText} - ${errorText}`);
-                    }
-                    allData = await response.json();
-                    console.log(`Loaded ${allData.length} records from GCS`);
-                    processData();
-                } catch (fetchError) {
-                    console.error('Fetch error:', fetchError);
-                    throw fetchError;
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Failed to load live data from GCS: ${response.status} ${response.statusText} - ${errorText}`);
                 }
+
+                const liveData = await response.json();
+                console.log(`✅ Loaded ${liveData.length} live records`);
+                
+                // Check sample of data
+                if (liveData.length > 0) {
+                    console.log('Sample record:', liveData[0]);
+                    const timestamps = liveData.map(d => d.timestamp);
+                    const minDate = new Date(Math.min(...timestamps) * 1000);
+                    const maxDate = new Date(Math.max(...timestamps) * 1000);
+                    console.log(`Live data date range: ${minDate.toISOString()} to ${maxDate.toISOString()}`);
+                    
+                    // Check for future dates (data quality issue)
+                    const now = new Date();
+                    if (maxDate > now) {
+                        console.warn(`⚠️  WARNING: Data contains FUTURE dates! Latest: ${maxDate.toISOString()} vs Today: ${now.toISOString()}`);
+                        console.warn(`   This suggests timestamps are off by ~1 year. Check your GPS device clocks or data processing!`);
+                    }
+                }
+
+                // Set allData to live data initially
+                allData = liveData;
+
+                // Filter to show only last 30 days initially
+                const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 86400);
+                const initialDisplayData = allData.filter(r => r.timestamp >= thirtyDaysAgo);
+                console.log(`📅 Initial display: Last 30 days = ${initialDisplayData.length} records`);
+
+                // Process and display the last 30 days
+                processData();
+
+                // Load historical data in the background (non-blocking)
+                console.log('🔄 Loading historical data in background...');
+                loadHistoricalDataInBackground(authHeader);
 
             } catch (error) {
-                console.error('Error loading data:', error);
-                console.error('Response status:', error.status);
-                
-                let errorMsg = `Failed to load wildlife tracking data: ${error.message}\n\n`;
-                
-                if (error.message.includes('401')) {
-                    errorMsg += 'Authentication Error (401):\n- The API credentials may not match\n- Check if Vercel deployment is up to date';
-                } else {
-                    errorMsg += 'Please ensure:\n1. Vercel API URL is correct\n2. Environment variables are set in Vercel\n3. API is properly deployed';
-                }
-                
-                alert(errorMsg);
-                allData = []; // Set empty array so UI shows no data
+                console.error('❌ Error loading data:', error);
+
+                // Fallback: Load sample data for presentation
+                console.log('⚠️  API failed, loading sample data for presentation...');
+                allData = getSampleData();
+                console.log(`Loaded ${allData.length} sample records as fallback`);
+
+                // Process and display the sample data
                 processData();
+
+                // Show user a warning but don't block the presentation
+                setTimeout(() => {
+                    alert('⚠️ API connection failed. Using sample data for demonstration.\n\nTo fix for production:\n1. Check Vercel environment variables\n2. Verify GCS credentials and bucket name\n3. Ensure JSON file exists in GCS');
+                }, 2000);
+
+                return; // Exit early, don't show error message
             } finally {
                 loadingOverlay.style.display = 'none';
             }
         }
 
+        // Background loading of historical data
+        let historicalDataLoaded = false;
+        async function loadHistoricalDataInBackground(authHeader) {
+            try {
+                // Add timeout to prevent hanging
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+                const historicalResponse = await fetch('https://ecoexist-api.vercel.app/api/historical-data', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': authHeader
+                    },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (historicalResponse.ok) {
+                    const historicalData = await historicalResponse.json();
+                    console.log(`✅ Background load complete: ${historicalData.length.toLocaleString()} historical records`);
+                    
+                    // Merge with existing data
+                    console.log('🔄 Merging historical data...');
+                    const combined = historicalData.concat(allData);
+                    combined.sort((a, b) => a.timestamp - b.timestamp);
+                    allData = combined;
+                    
+                    historicalDataLoaded = true;
+                    console.log(`✅ Total data available: ${allData.length.toLocaleString()} records`);
+                    console.log('   Slider and filters now have access to full history!');
+                    
+                    // Update global min/max timestamps using loop (avoid stack overflow)
+                    minTimestamp = allData[0].timestamp;
+                    maxTimestamp = allData[0].timestamp;
+                    
+                    for (let i = 1; i < allData.length; i++) {
+                        const ts = allData[i].timestamp;
+                        if (ts < minTimestamp) minTimestamp = ts;
+                        if (ts > maxTimestamp) maxTimestamp = ts;
+                    }
+                    
+                    console.log(`📅 New date range: ${new Date(minTimestamp * 1000).toLocaleDateString()} to ${new Date(maxTimestamp * 1000).toLocaleDateString()}`);
+                    
+                    // Destroy and recreate the slider with new range
+                    // This avoids the stack overflow from updateOptions with large datasets
+                    if (dateSlider) {
+                        console.log('🔄 Reinitializing slider with full dataset...');
+                        dateSlider.destroy();
+                        dateSlider = null;
+                        initializeDateSlider();
+                    }
+                    
+                    // Update statistics and filters with new data
+                    console.log('📊 Updating statistics with full historical + live data...');
+                    updateStatistics();
+                    populateTagFilter();
+                    populateMonthFilter();
+                } else {
+                    console.log('⚠️  Historical data not available, using live data only');
+                }
+            } catch (error) {
+                console.log('⚠️  Could not load historical data:', error.message);
+                console.log('   Dashboard will work with live data only');
+            }
+        }
+
+        // Merge historical and live data, handling overlaps
+        function mergeHistoricalAndLiveData(historicalData, liveData) {
+            if (!historicalData || historicalData.length === 0) {
+                console.log('No historical data to merge, using live data only');
+                return liveData || [];
+            }
+            if (!liveData || liveData.length === 0) {
+                console.log('No live data to merge, using historical data only');
+                return historicalData || [];
+            }
+
+            console.log('🔄 Merging historical and live data...');
+            console.log(`   Processing ${historicalData.length} historical records...`);
+            console.log(`   Processing ${liveData.length} live records...`);
+
+            // Create a Set of unique keys for live data (tagId-date) for fast lookup
+            const liveDataKeys = new Set();
+            
+            // Build live data keys - use simpler key format to avoid memory issues
+            for (let i = 0; i < liveData.length; i++) {
+                const record = liveData[i];
+                const dateKey = Math.floor(record.timestamp / 86400); // Day since epoch
+                const key = `${record.tagId}-${dateKey}`;
+                liveDataKeys.add(key);
+            }
+
+            console.log(`   Built ${liveDataKeys.size} unique live data keys`);
+
+            // Start with all live data
+            const mergedData = [...liveData];
+
+            // Add historical data only for dates/tags not in live data
+            let historicalAdded = 0;
+            for (let i = 0; i < historicalData.length; i++) {
+                const record = historicalData[i];
+                const dateKey = Math.floor(record.timestamp / 86400);
+                const key = `${record.tagId}-${dateKey}`;
+
+                // Only add if not in live data
+                if (!liveDataKeys.has(key)) {
+                    mergedData.push(record);
+                    historicalAdded++;
+                }
+                
+                // Log progress for large datasets
+                if (i > 0 && i % 10000 === 0) {
+                    console.log(`   Processed ${i}/${historicalData.length} historical records...`);
+                }
+            }
+
+            console.log(`📊 Merge results:`);
+            console.log(`   - Live data: ${liveData.length} records`);
+            console.log(`   - Historical data added: ${historicalAdded} records`);
+            console.log(`   - Overlapping dates removed: ${historicalData.length - historicalAdded} records`);
+            console.log(`   - Total merged: ${mergedData.length} records`);
+
+            // Sort merged data by timestamp for proper chronological display
+            console.log('   Sorting merged data...');
+            mergedData.sort((a, b) => a.timestamp - b.timestamp);
+            console.log('   ✅ Merge complete!');
+
+            return mergedData;
+        }
+
 
         // Process and display data
+        // Track the initial load state
+        let initialLoad = true;
+
         function processData() {
             if (!allData || allData.length === 0) {
                 alert('No data available');
@@ -1036,8 +1191,13 @@
             // Update tag legend
             updateTagLegend();
 
-            // Apply initial filters
-            applyFilters();
+            // Apply initial filters (on first load, only show last 30 days)
+            if (initialLoad) {
+                applyFiltersWithInitialDateRange();
+                initialLoad = false;
+            } else {
+                applyFilters();
+            }
 
             // Initialize date slider for animation
             initializeDateSlider();
@@ -1046,18 +1206,67 @@
             fitMapToDataExtent();
         }
 
-        function updateStatistics() {
-            const uniqueTags = new Set(allData.map(d => d.tagId));
-            document.getElementById('totalAnimals').textContent = uniqueTags.size;
-            document.getElementById('totalLocations').textContent = allData.length;
+        // Apply filters with initial 30-day range
+        function applyFiltersWithInitialDateRange() {
+            const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 86400);
+            
+            // Get all filters
+            const tagFilter = document.getElementById('tagFilter').value;
+            const monthFilter = document.getElementById('monthFilter').value;
+            
+            // Filter data
+            filteredData = allData.filter(item => {
+                // Apply tag filter
+                if (tagFilter && item.tagId !== tagFilter) return false;
+                
+                // Apply month filter if selected
+                if (monthFilter) {
+                    const itemDate = new Date(item.timestamp * 1000);
+                    const itemMonthYear = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`;
+                    if (itemMonthYear !== monthFilter) return false;
+                }
+                
+                // Apply initial 30-day date filter
+                if (item.timestamp < thirtyDaysAgo) return false;
+                
+                return true;
+            });
+            
+            console.log(`📅 Initial view: Showing ${filteredData.length} records from last 30 days`);
+            console.log(`   Full dataset (${allData.length} records) available for slider/filters`);
+            
+            // Update the map
+            updateMap();
+        }
 
-            // Calculate date range
-            const timestamps = allData.map(d => d.timestamp);
-            const minDate = new Date(Math.min(...timestamps) * 1000);
-            const maxDate = new Date(Math.max(...timestamps) * 1000);
+        function updateStatistics() {
+            if (!allData || allData.length === 0) return;
+            
+            // Total Animals = ALL unique tags in entire dataset (not just visible)
+            const allUniqueTags = new Set(allData.map(d => d.tagId));
+            document.getElementById('totalAnimals').textContent = allUniqueTags.size;
+            
+            // Total Locations = ALL data points in entire dataset
+            document.getElementById('totalLocations').textContent = allData.length.toLocaleString();
+
+            // Date Range tile = FULL dataset range (earliest to latest ever recorded)
+            // Use loop to avoid stack overflow with large datasets
+            let minTimestampStats = allData[0].timestamp;
+            let maxTimestampStats = allData[0].timestamp;
+            
+            for (let i = 1; i < allData.length; i++) {
+                const ts = allData[i].timestamp;
+                if (ts < minTimestampStats) minTimestampStats = ts;
+                if (ts > maxTimestampStats) maxTimestampStats = ts;
+            }
+            
+            const minDate = new Date(minTimestampStats * 1000);
+            const maxDate = new Date(maxTimestampStats * 1000);
 
             document.getElementById('dateRange').textContent =
                 `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
+                
+            console.log(`📊 Statistics updated: ${allUniqueTags.size} animals, ${allData.length.toLocaleString()} fixes, ${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`);
         }
 
         function populateTagFilter() {
@@ -1075,6 +1284,40 @@
             });
         }
 
+        function handleMonthFilterChange() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            
+            if (selectedMonth) {
+                // Get the timestamp range for the selected month
+                const [year, month] = selectedMonth.split('-');
+                const startOfMonth = new Date(year, month - 1, 1).getTime() / 1000;
+                const endOfMonth = new Date(year, month, 0, 23, 59, 59).getTime() / 1000;
+                
+                // Update slider to show the selected month
+                currentAnimationStart = startOfMonth;
+                currentAnimationEnd = endOfMonth;
+                
+                if (dateSlider) {
+                    dateSlider.set([startOfMonth, endOfMonth]);
+                }
+                
+                updateAnimationDateRange();
+                updateMapWithDateRange();
+            } else {
+                // Reset to last 30 days
+                const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 86400);
+                currentAnimationStart = Math.max(thirtyDaysAgo, minTimestamp);
+                currentAnimationEnd = maxTimestamp;
+                
+                if (dateSlider) {
+                    dateSlider.set([currentAnimationStart, currentAnimationEnd]);
+                }
+                
+                updateAnimationDateRange();
+                updateMapWithDateRange();
+            }
+        }
+
         function populateMonthFilter() {
             const monthFilter = document.getElementById('monthFilter');
             const monthsSet = new Set();
@@ -1087,7 +1330,7 @@
 
             const months = Array.from(monthsSet).sort().reverse();
 
-            monthFilter.innerHTML = '<option value="">Current Month</option>';
+            monthFilter.innerHTML = '<option value="">All Months</option>';
 
             months.forEach(monthYear => {
                 const [year, month] = monthYear.split('-');
@@ -1102,7 +1345,9 @@
 
         function updateTagLegend() {
             const legend = document.getElementById('tagLegend');
-            const uniqueTags = [...new Set(allData.map(d => d.tagId))].sort();
+            // Use filteredData to show only tags currently displayed on map
+            const displayData = filteredData && filteredData.length > 0 ? filteredData : allData;
+            const uniqueTags = [...new Set(displayData.map(d => d.tagId))].sort();
 
             legend.innerHTML = '';
 
@@ -1174,9 +1419,16 @@
         }
 
         function applyFilters() {
+            if (!allData || allData.length === 0) {
+                console.log('⚠️  No data available for filtering');
+                return;
+            }
+
             const tagFilter = document.getElementById('tagFilter').value;
             const dateFrom = document.getElementById('dateFrom').value;
             const dateTo = document.getElementById('dateTo').value;
+
+            console.log(`🔍 Applying filters: Tag=${tagFilter || 'All'}, From=${dateFrom || 'None'}, To=${dateTo || 'None'}`);
 
             filteredData = allData.filter(item => {
                 // Tag filter
@@ -1198,8 +1450,31 @@
                 return true;
             });
 
+            console.log(`   Filtered to ${filteredData.length.toLocaleString()} records`);
+
+            // If we have filtered data, adjust the slider to show the actual date range of filtered results
+            if (filteredData.length > 0) {
+                // Use reduce instead of spread operator to avoid stack overflow with large datasets
+                let actualMinTimestamp = filteredData[0].timestamp;
+                let actualMaxTimestamp = filteredData[0].timestamp;
+                
+                for (let i = 1; i < filteredData.length; i++) {
+                    const ts = filteredData[i].timestamp;
+                    if (ts < actualMinTimestamp) actualMinTimestamp = ts;
+                    if (ts > actualMaxTimestamp) actualMaxTimestamp = ts;
+                }
+                
+                currentAnimationStart = actualMinTimestamp;
+                currentAnimationEnd = actualMaxTimestamp;
+                
+                if (dateSlider) {
+                    dateSlider.set([actualMinTimestamp, actualMaxTimestamp]);
+                }
+                
+                console.log(`   Slider adjusted to: ${new Date(actualMinTimestamp * 1000).toLocaleDateString()} - ${new Date(actualMaxTimestamp * 1000).toLocaleDateString()}`);
+            }
+
             updateMap();
-            // updateDataTable(); // Removed - no longer displaying data table
         }
 
         function updateMap() {
@@ -1218,6 +1493,15 @@
             } else if (currentViewMode === 'speed-map') {
                 renderSpeedMapView();
             }
+
+            // Update statistics based on FULL dataset (not filtered)
+            updateStatistics();
+            
+            // Update legend based on what's currently visible
+            updateTagLegend();
+            
+            // Update slider date range display
+            updateAnimationDateRange();
 
             // Fit map to layers if any exist - tight zoom on AWT data
             if (mapLayers.length > 0) {
@@ -1557,21 +1841,40 @@
         function initializeDateSlider() {
             if (!allData || allData.length === 0) return;
 
-            // Get timestamp range from all data
-            const timestamps = allData.map(d => d.timestamp);
-            minTimestamp = Math.min(...timestamps);
-            maxTimestamp = Math.max(...timestamps);
+            // Get timestamp range from all data using loop (avoid stack overflow)
+            minTimestamp = allData[0].timestamp;
+            maxTimestamp = allData[0].timestamp;
+            
+            for (let i = 1; i < allData.length; i++) {
+                const ts = allData[i].timestamp;
+                if (ts < minTimestamp) minTimestamp = ts;
+                if (ts > maxTimestamp) maxTimestamp = ts;
+            }
 
-            // Initialize slider range to full dataset
-            currentAnimationStart = minTimestamp;
-            currentAnimationEnd = maxTimestamp;
+            console.log(`🔍 Slider Initialization Debug:`);
+            console.log(`   Data points: ${allData.length}`);
+            console.log(`   Min timestamp: ${minTimestamp} = ${new Date(minTimestamp * 1000).toISOString()}`);
+            console.log(`   Max timestamp: ${maxTimestamp} = ${new Date(maxTimestamp * 1000).toISOString()}`);
+
+            // Set initial slider position to show last 30 days
+            // Slider range will span full dataset
+            const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 86400);
+            let initialStart = Math.max(thirtyDaysAgo, minTimestamp);
+            let initialEnd = maxTimestamp;
+
+            console.log(`   Initial start: ${initialStart} = ${new Date(initialStart * 1000).toISOString()}`);
+            console.log(`   Initial end: ${initialEnd} = ${new Date(initialEnd * 1000).toISOString()}`);
+
+            // Initialize current animation range
+            currentAnimationStart = initialStart;
+            currentAnimationEnd = initialEnd;
 
             const sliderContainer = document.getElementById('dateSliderContainer');
             sliderContainer.innerHTML = ''; // Clear any existing slider
 
-            // Create slider
+            // Create slider with full range available, but starting position may be last 30 days
             dateSlider = noUiSlider.create(sliderContainer, {
-                start: [minTimestamp, maxTimestamp],
+                start: [initialStart, initialEnd],
                 connect: true,
                 range: {
                     'min': minTimestamp,
@@ -1588,21 +1891,49 @@
                 }
             });
 
-            // Update display and map when slider changes
+            // Update display when slider is being moved (no map update for performance)
             dateSlider.on('update', function(values) {
+                currentAnimationStart = parseInt(values[0]);
+                currentAnimationEnd = parseInt(values[1]);
+                updateAnimationDateRange();
+            });
+
+            // Update map only when slider is released (for performance)
+            dateSlider.on('change', function(values) {
                 currentAnimationStart = parseInt(values[0]);
                 currentAnimationEnd = parseInt(values[1]);
                 updateAnimationDateRange();
                 updateMapWithDateRange();
             });
 
+            // Set initial display and map to show full range
             updateAnimationDateRange();
+            updateMapWithDateRange();
         }
 
         function updateAnimationDateRange() {
-            const startDate = new Date(currentAnimationStart * 1000).toLocaleDateString();
-            const endDate = new Date(currentAnimationEnd * 1000).toLocaleDateString();
-            document.getElementById('animationDateRange').textContent = `${startDate} - ${endDate}`;
+            // Slider displays the actual date range of data being shown on map
+            if (filteredData && filteredData.length > 0) {
+                // Use loop to avoid stack overflow with large datasets
+                let minTs = filteredData[0].timestamp;
+                let maxTs = filteredData[0].timestamp;
+                
+                for (let i = 1; i < filteredData.length; i++) {
+                    const ts = filteredData[i].timestamp;
+                    if (ts < minTs) minTs = ts;
+                    if (ts > maxTs) maxTs = ts;
+                }
+                
+                const actualMinDate = new Date(minTs * 1000);
+                const actualMaxDate = new Date(maxTs * 1000);
+                document.getElementById('animationDateRange').textContent = 
+                    `${actualMinDate.toLocaleDateString()} - ${actualMaxDate.toLocaleDateString()}`;
+            } else {
+                // Fallback to slider position if no filtered data
+                const startDate = new Date(currentAnimationStart * 1000).toLocaleDateString();
+                const endDate = new Date(currentAnimationEnd * 1000).toLocaleDateString();
+                document.getElementById('animationDateRange').textContent = `${startDate} - ${endDate}`;
+            }
         }
 
         function updateMapWithDateRange() {
@@ -1674,6 +2005,10 @@
                     dateSlider.set([currentAnimationStart, currentAnimationEnd]);
                 }
 
+                // Update date range display and map
+                updateAnimationDateRange();
+                updateMapWithDateRange();
+
             }, speed);
         }
 
@@ -1731,25 +2066,78 @@
         }
 
         function printMap() {
-            // Capture the entire map container including legend
-            const mapContainer = document.getElementById('map-container');
+            // Show loading indicator
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.display = 'flex';
+            loadingOverlay.querySelector('p').textContent = 'Creating map image...';
 
-            // Use html2canvas to capture the entire map container with legend
-            html2canvas(mapContainer, {
-                scale: 2,
-                useCORS: true,
-                allowTaint: false,
-                logging: false
-            }).then(canvas => {
-                // Convert to JPG and download
-                const link = document.createElement('a');
-                link.download = `awt-map-${new Date().toISOString().split('T')[0]}.jpg`;
-                link.href = canvas.toDataURL('image/jpeg', 0.95);
-                link.click();
-            }).catch(error => {
-                console.error('Error capturing map:', error);
-                alert('Error creating map image. Please try again.');
+            // Only capture the map div itself, not the container with header
+            const mapElement = document.getElementById('map');
+
+            // Temporarily remove opacity from satellite layer for clean capture
+            const tileLayers = mapElement.querySelectorAll('.leaflet-tile-pane img');
+            const originalOpacities = [];
+            tileLayers.forEach(img => {
+                originalOpacities.push(img.style.opacity);
+                img.style.opacity = '1'; // Ensure full opacity for capture
             });
+
+            // Hide controls temporarily
+            const controls = mapElement.querySelectorAll('.leaflet-control');
+            controls.forEach(control => control.style.display = 'none');
+
+            // Wait for tiles to load and map to stabilize
+            setTimeout(() => {
+                // Use html2canvas to capture only the map, with proper settings to avoid offset
+                html2canvas(mapElement, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: false,
+                    logging: false,
+                    width: mapElement.offsetWidth,
+                    height: mapElement.offsetHeight,
+                    x: 0,
+                    y: 0,
+                    scrollX: 0,
+                    scrollY: 0,
+                    backgroundColor: '#ffffff',
+                    // Skip problematic elements
+                    ignoreElements: (element) => {
+                        return element.classList.contains('leaflet-control') ||
+                               element.classList.contains('leaflet-popup') ||
+                               element.classList.contains('leaflet-tooltip') ||
+                               element.id === 'tagLegend';
+                    }
+                }).then(canvas => {
+                    // Convert to JPG and download
+                    const link = document.createElement('a');
+                    link.download = `awt-map-${new Date().toISOString().split('T')[0]}.jpg`;
+                    link.href = canvas.toDataURL('image/jpeg', 0.95);
+                    link.click();
+
+                    // Restore original state
+                    tileLayers.forEach((img, index) => {
+                        img.style.opacity = originalOpacities[index];
+                    });
+                    controls.forEach(control => control.style.display = '');
+
+                    // Hide loading
+                    loadingOverlay.style.display = 'none';
+                    loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
+                }).catch(error => {
+                    console.error('Error capturing map:', error);
+
+                    // Restore original state even on error
+                    tileLayers.forEach((img, index) => {
+                        img.style.opacity = originalOpacities[index];
+                    });
+                    controls.forEach(control => control.style.display = '');
+
+                    alert('Error creating map image. Please try again.');
+                    loadingOverlay.style.display = 'none';
+                    loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
+                });
+            }, 1500); // Wait 1.5 seconds for map to stabilize
         }
 
         // Initialize when page loads
