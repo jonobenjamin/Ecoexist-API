@@ -2071,11 +2071,11 @@
             loadingOverlay.style.display = 'flex';
             loadingOverlay.querySelector('p').textContent = 'Creating map image...';
 
-            // Only capture the map div itself, not the container with header
-            const mapElement = document.getElementById('map');
+            // Capture the entire map area including legend (the d-flex container)
+            const mapArea = document.querySelector('#map-container .d-flex');
 
             // Temporarily remove opacity from satellite layer for clean capture
-            const tileLayers = mapElement.querySelectorAll('.leaflet-tile-pane img');
+            const tileLayers = mapArea.querySelectorAll('.leaflet-tile-pane img');
             const originalOpacities = [];
             tileLayers.forEach(img => {
                 originalOpacities.push(img.style.opacity);
@@ -2083,30 +2083,28 @@
             });
 
             // Hide controls temporarily
-            const controls = mapElement.querySelectorAll('.leaflet-control');
+            const controls = mapArea.querySelectorAll('.leaflet-control');
             controls.forEach(control => control.style.display = 'none');
 
             // Wait for tiles to load and map to stabilize
             setTimeout(() => {
-                // Use html2canvas to capture only the map, with proper settings to avoid offset
-                html2canvas(mapElement, {
+                // Use html2canvas to capture the entire map area (map + legend)
+                html2canvas(mapArea, {
                     scale: 2,
                     useCORS: true,
                     allowTaint: false,
                     logging: false,
-                    width: mapElement.offsetWidth,
-                    height: mapElement.offsetHeight,
+                    width: mapArea.offsetWidth,
+                    height: mapArea.offsetHeight,
                     x: 0,
                     y: 0,
                     scrollX: 0,
                     scrollY: 0,
                     backgroundColor: '#ffffff',
-                    // Skip problematic elements
+                    // Only skip popups and tooltips, keep legend
                     ignoreElements: (element) => {
-                        return element.classList.contains('leaflet-control') ||
-                               element.classList.contains('leaflet-popup') ||
-                               element.classList.contains('leaflet-tooltip') ||
-                               element.id === 'tagLegend';
+                        return element.classList.contains('leaflet-popup') ||
+                               element.classList.contains('leaflet-tooltip');
                     }
                 }).then(canvas => {
                     // Convert to JPG and download
