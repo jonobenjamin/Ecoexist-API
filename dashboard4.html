@@ -2071,26 +2071,42 @@
             loadingOverlay.style.display = 'flex';
             loadingOverlay.querySelector('p').textContent = 'Creating map image...';
 
-            // Capture the entire map area including legend (the d-flex container)
+            // Create a temporary capture container that includes heading above map
             const mapElement = document.getElementById('map');
             const mapArea = mapElement.parentElement; // Get the .d-flex parent that contains both map and legend
+            const mapContainer = mapArea.parentElement; // Get the card container
 
-            // Create and add heading overlay
+            // Create temporary capture wrapper
+            const captureWrapper = document.createElement('div');
+            captureWrapper.id = 'capture-wrapper';
+            captureWrapper.style.cssText = `
+                position: absolute;
+                top: -10000px;
+                left: -10000px;
+                background: white;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+
+            // Create and add centered heading
             const headingDiv = document.createElement('div');
             headingDiv.id = 'capture-heading';
             headingDiv.style.cssText = `
-                position: absolute;
-                top: 10px;
-                left: 10px;
-                background: rgba(255, 255, 255, 0.9);
-                padding: 8px 12px;
-                border-radius: 4px;
-                font-size: 14px;
+                background: rgba(255, 255, 255, 0.95);
+                padding: 12px 20px;
+                border-radius: 6px;
+                font-size: 16px;
                 font-weight: bold;
                 color: #2c5530;
-                border: 2px solid #2c5530;
-                z-index: 1000;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                border: 3px solid #2c5530;
+                margin-bottom: 15px;
+                text-align: center;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+                max-width: ${mapArea.offsetWidth}px;
             `;
 
             // Build heading text
@@ -2142,9 +2158,18 @@
             headingText += dateRangeText;
             headingDiv.textContent = headingText;
 
-            // Add heading to map area
-            mapArea.style.position = 'relative'; // Ensure positioning context
-            mapArea.appendChild(headingDiv);
+            // Clone the map area for capture
+            const mapAreaClone = mapArea.cloneNode(true);
+            mapAreaClone.style.position = 'static';
+            mapAreaClone.style.width = mapArea.offsetWidth + 'px';
+            mapAreaClone.style.height = mapArea.offsetHeight + 'px';
+
+            // Add heading and cloned map to wrapper
+            captureWrapper.appendChild(headingDiv);
+            captureWrapper.appendChild(mapAreaClone);
+
+            // Add wrapper to document temporarily
+            document.body.appendChild(captureWrapper);
 
             // Temporarily remove opacity from satellite layer for clean capture
             const tileLayers = mapElement.querySelectorAll('.leaflet-tile-pane img');
@@ -2160,15 +2185,10 @@
 
             // Wait for tiles to load and map to stabilize
             setTimeout(() => {
-                // Use dom-to-image for better Leaflet map capture
-                domtoimage.toJpeg(mapArea, {
+                // Use dom-to-image to capture the complete wrapper (heading + map)
+                domtoimage.toJpeg(captureWrapper, {
                     quality: 0.95,
-                    width: mapArea.offsetWidth,
-                    height: mapArea.offsetHeight,
-                    style: {
-                        'transform-origin': 'top left',
-                        'background-color': '#ffffff'
-                    }
+                    bgcolor: '#ffffff'
                 }).then(dataUrl => {
                     // Download the JPG directly
                     const link = document.createElement('a');
@@ -2182,10 +2202,10 @@
                     });
                     controls.forEach(control => control.style.display = '');
 
-                    // Remove the temporary heading
-                    const tempHeading = document.getElementById('capture-heading');
-                    if (tempHeading) {
-                        tempHeading.remove();
+                    // Remove the temporary capture wrapper
+                    const tempWrapper = document.getElementById('capture-wrapper');
+                    if (tempWrapper) {
+                        tempWrapper.remove();
                     }
 
                     // Hide loading
@@ -2200,10 +2220,10 @@
                     });
                     controls.forEach(control => control.style.display = '');
 
-                    // Remove the temporary heading
-                    const tempHeading = document.getElementById('capture-heading');
-                    if (tempHeading) {
-                        tempHeading.remove();
+                    // Remove the temporary capture wrapper
+                    const tempWrapper = document.getElementById('capture-wrapper');
+                    if (tempWrapper) {
+                        tempWrapper.remove();
                     }
 
                     alert('Error creating map image. Please try again.');
