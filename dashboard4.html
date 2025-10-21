@@ -1351,33 +1351,32 @@
 
             legend.innerHTML = '';
 
-            uniqueTags.forEach(tagId => {
-                if (!tagColors[tagId]) {
-                    tagColors[tagId] = colors[colorIndex % colors.length];
-                    colorIndex++;
-                }
+            // Only show individual tags for standard and current-historic maps
+            if (currentViewMode === 'standard' || currentViewMode === 'current-historic') {
+                uniqueTags.forEach(tagId => {
+                    if (!tagColors[tagId]) {
+                        tagColors[tagId] = colors[colorIndex % colors.length];
+                        colorIndex++;
+                    }
 
-                const item = document.createElement('div');
-                item.className = 'tag-legend';
+                    const item = document.createElement('div');
+                    item.className = 'tag-legend';
 
-                let colorDisplay = tagColors[tagId];
-                // For all map types, just show the tag with its color
-                item.innerHTML = `
-                    <span class="tag-color" style="background-color: ${colorDisplay}"></span>
-                    Tag ${tagId}
-                `;
+                    let colorDisplay = tagColors[tagId];
+                    item.innerHTML = `
+                        <span class="tag-color" style="background-color: ${colorDisplay}"></span>
+                        Tag ${tagId}
+                    `;
 
-                legend.appendChild(item);
-            });
+                    legend.appendChild(item);
+                });
+            }
 
             // Add special indicator rows for different map types
             if (currentViewMode === 'speed-map') {
                 // Yellow for slow
                 const slowIndicator = document.createElement('div');
                 slowIndicator.className = 'tag-legend';
-                slowIndicator.style.borderTop = '1px solid #dee2e6';
-                slowIndicator.style.paddingTop = '4px';
-                slowIndicator.style.marginTop = '4px';
                 slowIndicator.innerHTML = `
                     <span class="tag-color" style="background-color: yellow"></span>
                     Slow
@@ -1396,9 +1395,6 @@
                 // Yellow for day
                 const dayIndicator = document.createElement('div');
                 dayIndicator.className = 'tag-legend';
-                dayIndicator.style.borderTop = '1px solid #dee2e6';
-                dayIndicator.style.paddingTop = '4px';
-                dayIndicator.style.marginTop = '4px';
                 dayIndicator.innerHTML = `
                     <span class="tag-color" style="background-color: #ffea00"></span>
                     Day
