@@ -1359,24 +1359,24 @@
 
                 const item = document.createElement('div');
                 item.className = 'tag-legend';
-                
+
                 let colorDisplay = tagColors[tagId];
                 if (currentViewMode === 'day-night') {
                     item.innerHTML = `
                         <span class="tag-color" style="background-color: #ffea00"></span>
                         <span class="tag-color" style="background-color: #333333"></span>
-                        Tag ${tagId} (Day/Night)
+                        Tag ${tagId}
                     `;
                 } else if (currentViewMode === 'current-historic') {
                     item.innerHTML = `
                         <span class="tag-color" style="background-color: ${tagColors[tagId]}"></span>
                         <span class="tag-color" style="background-color: #888888"></span>
-                        Tag ${tagId} (Current/Historic)
+                        Tag ${tagId}
                     `;
                 } else if (currentViewMode === 'speed-map') {
                     item.innerHTML = `
-                        <div style="display: inline-block; width: 40px; height: 12px; background: linear-gradient(to right, yellow, orange, red); border-radius: 2px; margin-right: 5px;"></div>
-                        Tag ${tagId} (Speed: Yellow→Red)
+                        <span class="tag-color" style="background-color: ${colorDisplay}"></span>
+                        Tag ${tagId}
                     `;
                 } else {
                     item.innerHTML = `
@@ -1384,9 +1384,36 @@
                         Tag ${tagId}
                     `;
                 }
-                
+
                 legend.appendChild(item);
             });
+
+            // Add special indicator row for speed map and day/night map
+            if (currentViewMode === 'speed-map') {
+                const speedIndicator = document.createElement('div');
+                speedIndicator.className = 'tag-legend';
+                speedIndicator.style.borderTop = '1px solid #dee2e6';
+                speedIndicator.style.paddingTop = '4px';
+                speedIndicator.style.marginTop = '4px';
+                speedIndicator.innerHTML = `
+                    <div style="display: inline-block; width: 60px; height: 12px; background: linear-gradient(to right, yellow, orange, red); border-radius: 2px; margin-right: 5px;"></div>
+                    Speed: Slow → Fast
+                `;
+                legend.appendChild(speedIndicator);
+            } else if (currentViewMode === 'day-night') {
+                const dayNightIndicator = document.createElement('div');
+                dayNightIndicator.className = 'tag-legend';
+                dayNightIndicator.style.borderTop = '1px solid #dee2e6';
+                dayNightIndicator.style.paddingTop = '4px';
+                dayNightIndicator.style.marginTop = '4px';
+                dayNightIndicator.innerHTML = `
+                    <span class="tag-color" style="background-color: #ffea00"></span>
+                    <span style="margin: 0 4px;">Day</span>
+                    <span class="tag-color" style="background-color: #333333"></span>
+                    <span style="margin-left: 4px;">Night</span>
+                `;
+                legend.appendChild(dayNightIndicator);
+            }
         }
 
         function setViewMode(mode) {
@@ -2172,9 +2199,15 @@
                         // Draw map image below title
                         ctx.drawImage(img, 0, titleHeight);
 
-                        // Download the composite image
+                        // Download the composite image with title-based filename
                         const link = document.createElement('a');
-                        link.download = `awt-map-${new Date().toISOString().split('T')[0]}.jpg`;
+                        // Create filename from title (remove spaces, special chars)
+                        const filename = titleText.toLowerCase()
+                            .replace(/[^a-z0-9\s-]/g, '') // Remove special chars except spaces and hyphens
+                            .replace(/\s+/g, '-') // Replace spaces with hyphens
+                            .replace(/-+/g, '-') // Replace multiple hyphens with single
+                            .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+                        link.download = `${filename}.jpg`;
                         link.href = canvas.toDataURL('image/jpeg', 0.95);
                         link.click();
 
