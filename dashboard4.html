@@ -2158,15 +2158,13 @@
             headingText += dateRangeText;
             headingDiv.textContent = headingText;
 
-            // Clone the map area for capture
-            const mapAreaClone = mapArea.cloneNode(true);
-            mapAreaClone.style.position = 'static';
-            mapAreaClone.style.width = mapArea.offsetWidth + 'px';
-            mapAreaClone.style.height = mapArea.offsetHeight + 'px';
+            // Temporarily move the actual map area to the capture wrapper
+            // Store original parent for restoration
+            const originalParent = mapArea.parentElement;
 
-            // Add heading and cloned map to wrapper
+            // Add heading and actual map to wrapper (don't clone - preserve Leaflet instance)
             captureWrapper.appendChild(headingDiv);
-            captureWrapper.appendChild(mapAreaClone);
+            captureWrapper.appendChild(mapArea);
 
             // Add wrapper to document temporarily
             document.body.appendChild(captureWrapper);
@@ -2202,10 +2200,20 @@
                     });
                     controls.forEach(control => control.style.display = '');
 
-                    // Remove the temporary capture wrapper
-                    const tempWrapper = document.getElementById('capture-wrapper');
-                    if (tempWrapper) {
-                        tempWrapper.remove();
+                    // Restore map area to original position
+                    if (originalParent && originalParent.contains(mapArea)) {
+                        // Map area is already back, just remove wrapper
+                        const tempWrapper = document.getElementById('capture-wrapper');
+                        if (tempWrapper) {
+                            tempWrapper.remove();
+                        }
+                    } else {
+                        // Move map area back to original parent
+                        originalParent.appendChild(mapArea);
+                        const tempWrapper = document.getElementById('capture-wrapper');
+                        if (tempWrapper) {
+                            tempWrapper.remove();
+                        }
                     }
 
                     // Hide loading
@@ -2220,10 +2228,20 @@
                     });
                     controls.forEach(control => control.style.display = '');
 
-                    // Remove the temporary capture wrapper
-                    const tempWrapper = document.getElementById('capture-wrapper');
-                    if (tempWrapper) {
-                        tempWrapper.remove();
+                    // Restore map area to original position
+                    if (originalParent && originalParent.contains(mapArea)) {
+                        // Map area is already back, just remove wrapper
+                        const tempWrapper = document.getElementById('capture-wrapper');
+                        if (tempWrapper) {
+                            tempWrapper.remove();
+                        }
+                    } else {
+                        // Move map area back to original parent
+                        originalParent.appendChild(mapArea);
+                        const tempWrapper = document.getElementById('capture-wrapper');
+                        if (tempWrapper) {
+                            tempWrapper.remove();
+                        }
                     }
 
                     alert('Error creating map image. Please try again.');
