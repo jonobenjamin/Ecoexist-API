@@ -2071,117 +2071,9 @@
             loadingOverlay.style.display = 'flex';
             loadingOverlay.querySelector('p').textContent = 'Creating map image...';
 
-            // Create a minimal capture container off-screen
+            // Capture just the map area (working approach)
             const mapElement = document.getElementById('map');
             const mapArea = mapElement.parentElement; // Get the .d-flex parent that contains both map and legend
-
-            // Create minimal capture container
-            const captureContainer = document.createElement('div');
-            captureContainer.style.cssText = `
-                position: absolute;
-                top: -10000px;
-                left: -10000px;
-                background: white;
-                display: flex;
-                flex-direction: column;
-                width: ${mapArea.offsetWidth}px;
-            `;
-
-            // Create white ribbon
-            const ribbonDiv = document.createElement('div');
-            ribbonDiv.style.cssText = `
-                background: white;
-                padding: 15px 20px;
-                border-bottom: 2px solid #2c5530;
-                text-align: center;
-                width: 100%;
-            `;
-
-            // Create heading text
-            const headingDiv = document.createElement('div');
-            headingDiv.style.cssText = `
-                font-size: 18px;
-                font-weight: bold;
-                color: #2c5530;
-            `;
-
-            // Build heading text
-            let headingText = '';
-
-            // Get view mode
-            const viewModeMap = {
-                'standard': 'Standard Map',
-                'current-historic': 'Current vs Historic Map',
-                'day-night': 'Day vs Night Map',
-                'home-range': 'Home Range Map',
-                'speed-map': 'Speed Map'
-            };
-            headingText += viewModeMap[currentViewMode] || 'Map';
-
-            // Get animal info
-            const tagFilter = document.getElementById('tagFilter').value;
-            if (tagFilter) {
-                headingText += ` for Elephant ${tagFilter}`;
-            } else {
-                headingText += ' for All Elephants';
-            }
-
-            // Get date range
-            let dateRangeText = '';
-            if (filteredData && filteredData.length > 0) {
-                let minDate = filteredData[0].timestamp;
-                let maxDate = filteredData[0].timestamp;
-
-                for (let i = 1; i < filteredData.length; i++) {
-                    const ts = filteredData[i].timestamp;
-                    if (ts < minDate) minDate = ts;
-                    if (ts > maxDate) maxDate = ts;
-                }
-
-                const startDate = new Date(minDate * 1000);
-                const endDate = new Date(maxDate * 1000);
-
-                const formatDate = (date) => {
-                    const day = String(date.getDate()).padStart(2, '0');
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const year = date.getFullYear();
-                    return `${day}/${month}/${year}`;
-                };
-
-                dateRangeText = ` ${formatDate(startDate)} - ${formatDate(endDate)}`;
-            }
-
-            headingText += dateRangeText;
-            headingDiv.textContent = headingText;
-
-            // Add heading to ribbon
-            ribbonDiv.appendChild(headingDiv);
-
-            // Clone just the essential map content
-            const mapClone = mapElement.cloneNode(true);
-            const legendClone = mapArea.querySelector('.bg-white.border-start').cloneNode(true);
-
-            // Style the cloned elements
-            mapClone.style.width = mapElement.offsetWidth + 'px';
-            mapClone.style.height = mapElement.offsetHeight + 'px';
-            legendClone.style.width = '100px';
-            legendClone.style.flexShrink = '0';
-
-            // Create map container for cloned elements
-            const mapRow = document.createElement('div');
-            mapRow.style.cssText = `
-                display: flex;
-                width: 100%;
-            `;
-            mapRow.appendChild(mapClone);
-            mapRow.appendChild(legendClone);
-
-            // Add to capture container
-            captureContainer.appendChild(ribbonDiv);
-            captureContainer.appendChild(mapRow);
-
-            // Add to document temporarily
-            document.body.appendChild(captureContainer);
 
             // Temporarily remove opacity from satellite layer for clean capture
             const tileLayers = mapElement.querySelectorAll('.leaflet-tile-pane img');
@@ -2197,31 +2089,106 @@
 
             // Wait for tiles to load and map to stabilize
             setTimeout(() => {
-                // Use dom-to-image to capture the minimal container (ribbon + cloned map)
-                domtoimage.toJpeg(captureContainer, {
+                // Use dom-to-image to capture just the map area
+                domtoimage.toJpeg(mapArea, {
                     quality: 0.95,
                     bgcolor: '#ffffff'
                 }).then(dataUrl => {
-                    // Download the JPG directly
-                    const link = document.createElement('a');
-                    link.download = `awt-map-${new Date().toISOString().split('T')[0]}.jpg`;
-                    link.href = dataUrl;
-                    link.click();
+                    // Create canvas and add title overlay
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
 
-                    // Restore original state
-                    tileLayers.forEach((img, index) => {
-                        img.style.opacity = originalOpacities[index];
-                    });
-                    controls.forEach(control => control.style.display = '');
+                        // Set canvas size (add space for title)
+                        const titleHeight = 80;
+                        canvas.width = img.width;
+                        canvas.height = img.height + titleHeight;
 
-                    // Remove the temporary capture container
-                    if (captureContainer && captureContainer.parentNode) {
-                        captureContainer.parentNode.removeChild(captureContainer);
-                    }
+                        // Fill with white background
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    // Hide loading
-                    loadingOverlay.style.display = 'none';
-                    loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
+                        // Draw title ribbon
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, canvas.width, titleHeight);
+                        ctx.strokeStyle = '#2c5530';
+                        ctx.lineWidth = 4;
+                        ctx.strokeRect(0, titleHeight - 2, canvas.width, 2);
+
+                        // Add title text
+                        ctx.fillStyle = '#2c5530';
+                        ctx.font = 'bold 20px Arial';
+                        ctx.textAlign = 'center';
+
+                        // Build title text
+                        let titleText = '';
+                        const viewModeMap = {
+                            'standard': 'Standard Map',
+                            'current-historic': 'Current vs Historic Map',
+                            'day-night': 'Day vs Night Map',
+                            'home-range': 'Home Range Map',
+                            'speed-map': 'Speed Map'
+                        };
+                        titleText += viewModeMap[currentViewMode] || 'Map';
+
+                        const tagFilter = document.getElementById('tagFilter').value;
+                        if (tagFilter) {
+                            titleText += ` for Elephant ${tagFilter}`;
+                        } else {
+                            titleText += ' for All Elephants';
+                        }
+
+                        // Add date range
+                        let dateRangeText = '';
+                        if (filteredData && filteredData.length > 0) {
+                            let minDate = filteredData[0].timestamp;
+                            let maxDate = filteredData[0].timestamp;
+
+                            for (let i = 1; i < filteredData.length; i++) {
+                                const ts = filteredData[i].timestamp;
+                                if (ts < minDate) minDate = ts;
+                                if (ts > maxDate) maxDate = ts;
+                            }
+
+                            const startDate = new Date(minDate * 1000);
+                            const endDate = new Date(maxDate * 1000);
+
+                            const formatDate = (date) => {
+                                const day = String(date.getDate()).padStart(2, '0');
+                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                const year = date.getFullYear();
+                                return `${day}/${month}/${year}`;
+                            };
+
+                            dateRangeText = ` ${formatDate(startDate)} - ${formatDate(endDate)}`;
+                        }
+
+                        titleText += dateRangeText;
+
+                        // Draw title
+                        ctx.fillText(titleText, canvas.width / 2, titleHeight / 2 + 7);
+
+                        // Draw map image below title
+                        ctx.drawImage(img, 0, titleHeight);
+
+                        // Download the composite image
+                        const link = document.createElement('a');
+                        link.download = `awt-map-${new Date().toISOString().split('T')[0]}.jpg`;
+                        link.href = canvas.toDataURL('image/jpeg', 0.95);
+                        link.click();
+
+                        // Restore original state
+                        tileLayers.forEach((img, index) => {
+                            img.style.opacity = originalOpacities[index];
+                        });
+                        controls.forEach(control => control.style.display = '');
+
+                        // Hide loading
+                        loadingOverlay.style.display = 'none';
+                        loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
+                    };
+                    img.src = dataUrl;
                 }).catch(error => {
                     console.error('Error capturing map:', error);
                     console.error('Error details:', {
@@ -2233,7 +2200,7 @@
                     // Try alternative capture method
                     console.log('Attempting alternative capture method...');
                     // Fallback to canvas capture
-                    html2canvas(captureContainer, {
+                    html2canvas(mapArea, {
                         scale: 1,
                         useCORS: true,
                         allowTaint: false,
@@ -2254,9 +2221,6 @@
                             img.style.opacity = originalOpacities[index];
                         });
                         controls.forEach(control => control.style.display = '');
-                        if (captureContainer && captureContainer.parentNode) {
-                            captureContainer.parentNode.removeChild(captureContainer);
-                        }
                         loadingOverlay.style.display = 'none';
                         loadingOverlay.querySelector('p').textContent = 'Loading wildlife data...';
                     }).catch(fallbackError => {
@@ -2267,11 +2231,6 @@
                             img.style.opacity = originalOpacities[index];
                         });
                         controls.forEach(control => control.style.display = '');
-
-                        // Remove the temporary capture container
-                        if (captureContainer && captureContainer.parentNode) {
-                            captureContainer.parentNode.removeChild(captureContainer);
-                        }
 
                         alert('Error creating map image. Please try again.');
                         loadingOverlay.style.display = 'none';
