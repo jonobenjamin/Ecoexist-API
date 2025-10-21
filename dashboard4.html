@@ -1361,47 +1361,39 @@
                 item.className = 'tag-legend';
 
                 let colorDisplay = tagColors[tagId];
-                if (currentViewMode === 'day-night') {
-                    item.innerHTML = `
-                        <span class="tag-color" style="background-color: #ffea00"></span>
-                        <span class="tag-color" style="background-color: #333333"></span>
-                        Tag ${tagId}
-                    `;
-                } else if (currentViewMode === 'current-historic') {
-                    item.innerHTML = `
-                        <span class="tag-color" style="background-color: ${tagColors[tagId]}"></span>
-                        <span class="tag-color" style="background-color: #888888"></span>
-                        Tag ${tagId}
-                    `;
-                } else if (currentViewMode === 'speed-map') {
-                    item.innerHTML = `
-                        <span class="tag-color" style="background-color: ${colorDisplay}"></span>
-                        Tag ${tagId}
-                    `;
-                } else {
-                    item.innerHTML = `
-                        <span class="tag-color" style="background-color: ${colorDisplay}"></span>
-                        Tag ${tagId}
-                    `;
-                }
+                // For all map types, just show the tag with its color
+                item.innerHTML = `
+                    <span class="tag-color" style="background-color: ${colorDisplay}"></span>
+                    Tag ${tagId}
+                `;
 
                 legend.appendChild(item);
             });
 
             // Add special indicator rows for different map types
             if (currentViewMode === 'speed-map') {
-                const speedIndicator = document.createElement('div');
-                speedIndicator.className = 'tag-legend';
-                speedIndicator.style.borderTop = '1px solid #dee2e6';
-                speedIndicator.style.paddingTop = '4px';
-                speedIndicator.style.marginTop = '4px';
-                speedIndicator.innerHTML = `
-                    <div style="display: inline-block; width: 12px; height: 40px; background: linear-gradient(to bottom, yellow, orange, red); border-radius: 2px; margin-right: 5px;"></div>
-                    Speed<br>Slow → Fast
+                // Yellow for slow
+                const slowIndicator = document.createElement('div');
+                slowIndicator.className = 'tag-legend';
+                slowIndicator.style.borderTop = '1px solid #dee2e6';
+                slowIndicator.style.paddingTop = '4px';
+                slowIndicator.style.marginTop = '4px';
+                slowIndicator.innerHTML = `
+                    <span class="tag-color" style="background-color: yellow"></span>
+                    Slow
                 `;
-                legend.appendChild(speedIndicator);
+                legend.appendChild(slowIndicator);
+
+                // Red for fast
+                const fastIndicator = document.createElement('div');
+                fastIndicator.className = 'tag-legend';
+                fastIndicator.innerHTML = `
+                    <span class="tag-color" style="background-color: red"></span>
+                    Fast
+                `;
+                legend.appendChild(fastIndicator);
             } else if (currentViewMode === 'day-night') {
-                // Day indicator row
+                // Yellow for day
                 const dayIndicator = document.createElement('div');
                 dayIndicator.className = 'tag-legend';
                 dayIndicator.style.borderTop = '1px solid #dee2e6';
@@ -1413,7 +1405,7 @@
                 `;
                 legend.appendChild(dayIndicator);
 
-                // Night indicator row
+                // Black for night
                 const nightIndicator = document.createElement('div');
                 nightIndicator.className = 'tag-legend';
                 nightIndicator.innerHTML = `
@@ -1422,6 +1414,7 @@
                 `;
                 legend.appendChild(nightIndicator);
             } else if (currentViewMode === 'current-historic') {
+                // Gray for historical data
                 const historicIndicator = document.createElement('div');
                 historicIndicator.className = 'tag-legend';
                 historicIndicator.style.borderTop = '1px solid #dee2e6';
