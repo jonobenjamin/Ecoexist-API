@@ -2088,9 +2088,12 @@
 
             // Wait for tiles to load and map to stabilize
             setTimeout(() => {
-                // Use html2canvas to capture only the map (simpler, more reliable)
+                // Force a synchronous map render before capturing
+                map._renderer._update();
+
+                // Use html2canvas with better transform handling
                 html2canvas(mapElement, {
-                    scale: 2,
+                    scale: window.devicePixelRatio || 2,
                     useCORS: true,
                     allowTaint: false,
                     logging: false,
@@ -2098,14 +2101,26 @@
                     height: mapElement.offsetHeight,
                     x: 0,
                     y: 0,
-                    scrollX: 0,
-                    scrollY: 0,
+                    scrollX: window.pageXOffset,
+                    scrollY: window.pageYOffset,
                     backgroundColor: '#ffffff',
+                    // Better transform handling for Leaflet
+                    letterRendering: true,
+                    allowTaint: false,
                     // Skip popups and tooltips
                     ignoreElements: (element) => {
                         return element.classList.contains('leaflet-control') ||
                                element.classList.contains('leaflet-popup') ||
                                element.classList.contains('leaflet-tooltip');
+                    },
+                    // Force synchronous rendering
+                    onclone: (clonedDoc) => {
+                        // Ensure cloned map renders correctly
+                        const clonedMap = clonedDoc.getElementById('map');
+                        if (clonedMap) {
+                            clonedMap.style.width = mapElement.offsetWidth + 'px';
+                            clonedMap.style.height = mapElement.offsetHeight + 'px';
+                        }
                     }
                 }).then(canvas => {
                     // Convert to JPG and download
