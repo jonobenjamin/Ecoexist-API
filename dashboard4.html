@@ -2071,33 +2071,21 @@
             loadingOverlay.style.display = 'flex';
             loadingOverlay.querySelector('p').textContent = 'Creating map image...';
 
-            // Create a temporary capture container with white ribbon above map
+            // Add temporary white ribbon above the map for capture
             const mapElement = document.getElementById('map');
             const mapArea = mapElement.parentElement; // Get the .d-flex parent that contains both map and legend
             const mapContainer = mapArea.parentElement; // Get the card container
 
-            // Create temporary capture wrapper with white ribbon
-            const captureWrapper = document.createElement('div');
-            captureWrapper.id = 'capture-wrapper';
-            captureWrapper.style.cssText = `
-                position: absolute;
-                top: -10000px;
-                left: -10000px;
-                background: white;
-                display: flex;
-                flex-direction: column;
-                width: ${mapContainer.offsetWidth}px;
-            `;
-
-            // Create white ribbon for heading
+            // Create white ribbon and temporarily add it above the map
             const ribbonDiv = document.createElement('div');
-            ribbonDiv.id = 'capture-ribbon';
+            ribbonDiv.id = 'temp-ribbon';
             ribbonDiv.style.cssText = `
                 background: white;
                 padding: 15px 20px;
                 border-bottom: 2px solid #2c5530;
                 text-align: center;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                margin-bottom: 0;
             `;
 
             // Create heading text
@@ -2161,16 +2149,8 @@
             // Add heading to ribbon
             ribbonDiv.appendChild(headingDiv);
 
-            // Clone the map area for capture
-            const mapAreaClone = mapArea.cloneNode(true);
-            mapAreaClone.style.position = 'static';
-
-            // Add ribbon and cloned map to wrapper
-            captureWrapper.appendChild(ribbonDiv);
-            captureWrapper.appendChild(mapAreaClone);
-
-            // Add wrapper to document temporarily
-            document.body.appendChild(captureWrapper);
+            // Temporarily add ribbon above the map container
+            mapContainer.insertBefore(ribbonDiv, mapArea);
 
             // Temporarily remove opacity from satellite layer for clean capture
             const tileLayers = mapElement.querySelectorAll('.leaflet-tile-pane img');
@@ -2186,8 +2166,8 @@
 
             // Wait for tiles to load and map to stabilize
             setTimeout(() => {
-                // Use dom-to-image to capture the complete wrapper (ribbon + map)
-                domtoimage.toJpeg(captureWrapper, {
+                // Use dom-to-image to capture the map container (ribbon + map)
+                domtoimage.toJpeg(mapContainer, {
                     quality: 0.95,
                     bgcolor: '#ffffff'
                 }).then(dataUrl => {
@@ -2203,10 +2183,10 @@
                     });
                     controls.forEach(control => control.style.display = '');
 
-                    // Remove the temporary capture wrapper
-                    const tempWrapper = document.getElementById('capture-wrapper');
-                    if (tempWrapper) {
-                        tempWrapper.remove();
+                    // Remove the temporary ribbon
+                    const tempRibbon = document.getElementById('temp-ribbon');
+                    if (tempRibbon) {
+                        tempRibbon.remove();
                     }
 
                     // Hide loading
@@ -2221,10 +2201,10 @@
                     });
                     controls.forEach(control => control.style.display = '');
 
-                    // Remove the temporary capture wrapper
-                    const tempWrapper = document.getElementById('capture-wrapper');
-                    if (tempWrapper) {
-                        tempWrapper.remove();
+                    // Remove the temporary ribbon
+                    const tempRibbon = document.getElementById('temp-ribbon');
+                    if (tempRibbon) {
+                        tempRibbon.remove();
                     }
 
                     alert('Error creating map image. Please try again.');
