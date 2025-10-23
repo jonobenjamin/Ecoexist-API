@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS, PUT, DELETE" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization, Origin, X-Requested-With, Accept, User-Agent" },
+        { "key": "Access-Control-Allow-Credentials", "value": "true" }
+      ]
+    }
+  ],
+  "rewrites": [
+    { "source": "/api/awt-data", "destination": "/api/awt-data.js" },
+    { "source": "/api/historical-data", "destination": "/api/historical-data.js" },
+    { "source": "/api/historical-data-by-year", "destination": "/api/historical-data-by-year.js" },
+    { "source": "/api/health", "destination": "/api/health.js" }
+  ],
+  "functions": {
+    "api/historical-data.js": {
+      "maxDuration": 60
+    },
+    "api/historical-data-by-year.js": {
+      "maxDuration": 60
+    }
+  }
+}
