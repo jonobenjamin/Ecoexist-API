@@ -326,7 +326,7 @@
                     <div class="col-md-6 col-lg-6">
                         <div class="card stats-card">
                             <div class="card-body">
-                                <h6 class="card-title text-muted">Total Animals</h6>
+                                <h6 class="card-title text-muted">Total Elephants</h6>
                                 <h3 class="text-success mb-0" id="totalAnimals">0</h3>
                             </div>
                         </div>
@@ -373,9 +373,9 @@
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label for="tagFilter" class="form-label">Animal Tag ID</label>
+                            <label for="tagFilter" class="form-label">Elephant</label>
                             <select class="form-select" id="tagFilter">
-                                <option value="">All Animals</option>
+                                <option value="">All Elephants</option>
                             </select>
                         </div>
 
@@ -435,6 +435,21 @@
             '#ff6b35', '#f7931e', '#ffb627', '#ffea00',
             '#0077b6', '#0096c7', '#00b4d8', '#48cae4'
         ];
+
+        // Elephant name mapping
+        const elephantNames = {
+            "3839": "Shorobe",
+            "5588": "Larry",
+            "5589": "Mokolwane",
+            "5590": "Ebanaria",
+            "5591": "Grand Grey",
+            "8537": "Brother",
+            "8538": "Bruce",
+            "8539": "Raintree",
+            "8540": "Art",
+            "8542": "Dream",
+            "8543": "Queenie"
+        };
 
         // Animation variables
         let dateSlider = null;
@@ -800,12 +815,12 @@
             const uniqueTags = [...new Set(allData.map(d => d.tagId))].sort();
 
             // Clear existing options except the first one
-            tagFilter.innerHTML = '<option value="">All Animals</option>';
+            tagFilter.innerHTML = '<option value="">All Elephants</option>';
 
             uniqueTags.forEach(tagId => {
                 const option = document.createElement('option');
                 option.value = tagId;
-                option.textContent = `Tag ${tagId}`;
+                option.textContent = elephantNames[tagId] || `Tag ${tagId}`;
                 tagFilter.appendChild(option);
             });
         }
@@ -827,7 +842,7 @@
 
                 item.innerHTML = `
                     <span class="tag-color" style="background-color: ${tagColors[tagId]}"></span>
-                    Tag ${tagId}
+                    ${elephantNames[tagId] || `Tag ${tagId}`}
                 `;
 
                 legend.appendChild(item);
